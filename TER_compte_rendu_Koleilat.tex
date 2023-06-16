@@ -1,0 +1,1858 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage[utf8]{inputenc}
+\usepackage{a4wide}
+\usepackage{mathrsfs}
+\usepackage{stmaryrd}
+\usepackage{mathtools}
+\usepackage[french,english]{babel}
+\usepackage{graphicx}
+\usepackage{titling}
+\usepackage{hyperref}
+\usepackage{faktor}
+\usepackage{ntheorem}
+\usepackage{ebproof}
+\usepackage{MnSymbol}
+\usepackage[nottoc, notlof, notlot]{tocbibind}
+
+
+\theoremstyle{plain}
+\newtheorem{theo}{Théorème}[subsection]
+\newtheorem{prop}[theo]{Proposition}
+\newtheorem{defi}[theo]{Définition}
+
+\theorembodyfont{\normalfont}
+\newtheorem{proofinner}{Démonstration}
+
+\newenvironment{demo}[1][]
+ {\if\relax\detokenize{#1}\relax
+    % no optional argument
+    \renewcommand\theproofinner{\thetheo}%
+  \else
+    \renewcommand{\theproofinner}{#1}%
+  \fi
+  \proofinner}
+ {\endproofinner}
+
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\set}[1]{{#1}}
+\newcommand{\embwf}{\mathbf{{emb}_{wf}}}
+\newcommand{\emb}{\mathbf{emb}}
+\newcommand{\EMB}{\mathbf{EMB}}
+\newcommand{\type}{\mathit{Type}}
+\newcommand{\tprop}{\mathit{Prop}}
+\newcommand{\WF}{\mathbf{WF}}
+\newcommand{\wf}{\mathbf{wf}}
+\newcommand{\acc}{\mathbf{acc}}
+\renewcommand{\implies}{\Rightarrow}
+\newcommand{\eint}{=_{\mathit{Le}}}
+\newcommand{\D}{\mathcal{D}}
+
+\begin{document}
+
+\selectlanguage{french}
+
+\begin{titlepage}
+\title{Travaux encadrés de Recherche\\ Théories des types et paradoxe de Girard} 
+\author{Jad Koleilat, sous la direction de Christine Paulin-Mohring }
+\date{Mai 2022}
+\maketitle
+\center{Université Paris-Saclay}
+\thispagestyle{empty}
+\end{titlepage}
+
+\selectlanguage{english}
+
+\vspace*{\fill}
+
+Je remercie Mme Paulin-Mohring pour l'opportunité qu'elle m'a donnée et pour le temps qu'elle m'a consacré.\\
+
+Je remercie aussi mon ami et camarade Arthur Dallemagne pour sa relecture attentive. \vspace*{\fill}
+
+\thispagestyle{empty}
+
+\clearpage
+
+\selectlanguage{french}
+
+\tableofcontents
+\thispagestyle{empty}
+
+\selectlanguage{english}
+
+\clearpage
+
+\pagenumbering{arabic}
+
+\section*{Introduction}
+\label{introduction}
+
+Le paradoxe de Russell est un des paradoxes les plus connus de la théorie des ensembles. Il apparaît lorsque l'on s'autorise trop de liberté dans la manière de définir de nouveaux ensembles. Ce paradoxe a un équivalent dans les théories des types : le paradoxe de Girard \cite{paradox}. Le but de ce document est d'expliquer ce paradoxe à des lecteurs qui n'ont pas nécessairement de connaissances en logique. Ainsi, une grande partie du document est dédiée à la construction de structures et à l'explication de notions importantes pour la preuve du paradoxe. Une attention particulière a été donnée à l'explication intuitive des concepts abordés, car elle est cruciale à la compréhension des systèmes logiques que nous serons amenés à considérer.\\
+
+On s'autorisera à utiliser le méta-symbole "$:=$'', qui signifie que le membre de gauche sera utilisé comme raccourci pour écrire le membre de droite.\\
+
+On rappelle les connecteurs logiques suivants ainsi que leur table de vérité :
+
+\begin{itemize}
+\item $\Rightarrow$ est le symbole logique pour "implique"
+\item $\land$ est le symbole logique pour "et"
+\item $\lor$ est le symbole logique pour "ou"
+\item $\neg$ est le symbole logique pour "non"
+\item $\bot$ est le symbole qui représente la proposition toujours fausse. Il se lit "bottom"
+\end{itemize}
+
+\begin{center}
+\begin{tabular}{|c c | c | c | c |}
+\hline
+$A$ & $B$ & $A \land B$ & $A \lor B$ & $A \Rightarrow B$\\
+\hline
+Vrai & Vrai & Vrai & Vrai & Vrai\\
+\hline
+Vrai & Faux & Faux & Vrai & Faux\\
+\hline
+Faux & Vrai & Faux & Vrai & Vrai\\
+\hline
+Faux & Faux & Faux & Faux & Vrai\\
+\hline
+\end{tabular}
+\label{tab verite}
+\end{center}
+
+\begin{center}
+\begin{tabular}{|c | c | c |}
+\hline
+$A$ & $\neg A$ & $\bot$\\
+\hline
+Vrai & Faux & Faux \\
+\hline
+Faux& Vrai & Faux \\
+\hline
+\end{tabular}
+\end{center}
+
+On peut définir $\neg A := A \Rightarrow\bot$. Le lecteur peut s'en convaincre en utilisant les tables de vérité ci-dessus.\\
+
+On rappelle que la convention de parenthésage pour $A \Rightarrow B \Rightarrow C$ est $A \Rightarrow( B \Rightarrow C)$.
+
+\clearpage
+
+\section{Induction et relations biens fondées}
+\label{induction et relations biens fondées}
+
+\subsection{Motivations}
+
+Cette section est consacrée à une généralisation de la notion de récurrence. En effet, il est possible de raisonner "par récurrence'' sur des structures différentes de $\mathbb{N}$ et sans utiliser la notion classique de relation bien fondée. Les notions vues dans cette section sont indispensables à la compréhension de la suite de ce document.
+
+\subsection{Ensembles Inductifs}
+
+\begin{defi}[Domaine d'une fonction partielle]
+Soit $f : X \to Y$ une fonction partielle, $\mathcal{D}_f$ est l'ensemble des $x$ dans $X$ tel que $f(x)$ est défini.\\
+On appelle $\mathcal{D}_f$ le domaine de $f$.
+\end{defi}
+
+\begin{defi}
+Soit $X$ un ensemble, une définition inductive d'un sous-ensemble de $X$ est :
+\begin{itemize}
+\setlength\itemsep{ -1.5 em}
+\item  la donnée explicite d'une partie $B \subset X$, $B$ est appelé l'ensemble de base.\\
+\item  la donnée d'un ensemble de règles $R$ (fini ou infini). Chaque règle $r_i \in R$ est une fonction $r_i :  X^{n_i} \to X$ qui peut être partielle.
+\end{itemize}
+On considère alors $\mathcal{F} \subset X$ le plus petit ensemble contenant $B$ et stable par les règles de $R$. C'est-à-dire que $\forall r_i \in R, (x_1, \dots, x_{n_i} \in \mathcal{D}_{r_i} ) \land  (x_1, \dots, x_{n_i} \in \mathcal{F}) \Rightarrow(r_i( x_1, \dots, x_{n_i}) \in \mathcal{F})$.
+\end{defi}
+
+\begin{theo}[Point fixe]
+Soit $X$ un ensemble, $B \subset X$, $R$ un ensemble de règles sur $X$, alors il existe un unique plus petit ensemble $\mathcal{F}$ qui vérifie :
+\begin{itemize}
+\setlength\itemsep{ -1.5 em}
+\item[$(B)$] $B \subset \mathcal{F}$\\
+\item[$(I)$] $\mathcal{F}$ est stable par les éléments de $R$ 
+\end{itemize}
+On dit alors que $\mathcal{F}$ est défini inductivement.
+\end{theo}
+
+\begin{demo}
+Soit $E$ l'ensemble des parties de $X$ vérifiant $(B)$ et $(I)$. $E$ est non vide car $X$ vérifie $(B)$ et $(I)$. On définit 
+$$ \mathcal{F} := \bigcap_{e \in E} e$$
+$B$ est inclus dans tous les $e \in E$ donc $B \subset \mathcal{F}$. Soit une règle $r_i \in R$, soit $x_1, \dots, x_{n_i}$ des éléments de $\mathcal{F}$ qui sont dans le domaine de $r_i$. On a que :
+$$\forall e \in E, \ x_1, \dots, x_{n_i} \in e \Rightarrow r_i(x_1, \dots, x_{n_i}) \in e$$
+car tout les $e$ vérifient $(I)$. Puisque $\mathcal{F}$ est l'intersection des $e \in E$, on a bien que $r_i(x_1, \dots, x_{n_i}) \in \mathcal{F}$. $\mathcal{F}$ vérifie donc $(B)$ et $(I)$. Par construction, on a bien la minimalité de $\mathcal{F}$.
+\end{demo}
+
+\clearpage
+
+\begin{theo}[Preuve par induction]
+Soit $\mathcal{F} \subset X$ un ensemble défini inductivement à partir d'un ensemble de base $B$ et d'un ensemble de règles $R$. Soit $P$ un prédicat sur $X$ ($P$ est une fonction qui prend un élément de $X$ et qui renvoie vrai ou faux). Si les propriétés suivantes sont vérifiées :
+\begin{itemize}
+\setlength\itemsep{ -1.5 em}
+\item  $P(x)$ est vrai pour tout  $x \in B$\\
+\item $P$ est héréditaire : pour chaque $r_i \in R$, soit $x_1, \dots, x_{n_i} \in \mathcal{F}$ et $x_1, \dots, x_{n_i} \in \mathcal{D}_{r_i}$ si $P(x_1), \dots, P(x_{n_i})$ sont tous vrais alors $P(r_i(x_1, \dots, x_{n_i}))$ est vrai.
+\end{itemize}
+Alors $P$ est vrai pour tout élément de $\mathcal{F}$.
+\end{theo}
+
+\begin{demo} 
+Soit $G$ l'ensemble des éléments $x$ de $X$ tel que $P(x)$ est vrai. $B$ est inclus dans $G$ et $G$ est stable par les règles $R$. Par minimalité de $\mathcal{F}$ on a donc $\mathcal{F} \subset G$ donc $P$ est vrai pour tout élément de $\mathcal{F}$. 
+\end{demo}
+
+\paragraph{Remarque}
+
+Il est usuel de présenter les règles sous forme de règles d'inférence. Une règle d'inférence se présente comme une fraction avec au numérateur les hypothèses ainsi que les éventuelles conditions correspondant au domaine de la règle et au dénominateur la conclusion. Le nom de chaque règle est indiqué entre parenthèses à coté du trait de fraction. Un ensemble de règles d'inférence s'appelle un système d'inférence.
+
+\paragraph{Exemple}
+
+On va définir par des règles d'inférence l'ensemble des entiers pairs
+$P$. 
+$$
+\begin{prooftree}[center = false]
+\infer[left label = $(1)$]0{0 \in P}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center = false]
+\hypo{ n \in P}
+\infer[left label = $(2)$]1{ (n+2) \in P}
+\end{prooftree}
+$$
+
+La règle d'inférence $(2)$ nous dit que si $n$ est un entier pair alors $n+2$ est aussi un entier pair. La règle d'inférence $(1)$ nous dit que $0$ est un entier pair. La règle d'inférence $(1)$ correspond à se donner un ensemble de base $B := {0}$ et la $(2)$ une règle $r : n \mapsto n+2$. On considère alors le plus petit ensemble stable par ces règles qui est (sans surprise) l'ensemble des entiers pairs.
+
+\begin{defi}
+Une relation binaire $R$ sur un ensemble $S$ est définie comme un sous-ensemble de $S^2$. Soit $x,y \in S$, on utilise alors la notation $x  \mathbin{R}  y$ pour désigner que $(x,y) \in R$. On peut aussi voir une relation binaire comme une fonction qui va de $S \times S$ vers ${0,1}$ ($0$ pour "Faux" et $1$ pour "Vrai").\\
+\end{defi}
+
+\begin{defi}[Clôture transitive] 
+Soit $R$ une relation binaire sur un ensemble $S$, on appelle $R'$ la clôture transitive de $R$ définie par :
+$$
+\begin{prooftree}[center=false]
+\hypo{ t \mathbin{R} u}
+\infer[left label = $(1)$]1{ t \mathbin{R'} u}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center=false]
+\hypo{u \mathbin{R'} v \quad v  \mathbin{R'}  t}
+\infer[left label = $(2)$]1{ u \mathbin{R'} t}
+\end{prooftree}
+$$
+\end{defi}
+
+En regardant attentivement les règles, on peut remarquer qu'elles ne sont pas fonctionnelles. En effet, pour un élément $u$, il peut exister plusieurs éléments $t_1, t_2, \dots \in S$ tels que $u \mathbin{R} t_1$, $u \mathbin{R} t_2$, \dots. Cela peut sembler problématique a priori car les règles sont des fonctions. En réalité, cela ne pose de problème. Une relation binaire est définie par un ensemble de couples. La règle $(1)$ revient juste à se donner un ensemble de base $B := { (x,y) \in S^2 \mid x \mathbin{R} y}$. La règle $(2)$ revient à se donner une fonction partiell $r :S^2 \times S^2 \to S^2$ définie par $r( (x , y_1),(y_2 ,t)) = (x,t)$ si $y_1 = y_2$.
+
+\paragraph{Exemple}
+
+Soit $R$ la relation binaire définie sur $\mathbb{N}$ par $(n \mathbin{R} m) := (n+1 = m)$. On a que $2 \mathbin{R} 3$ ~mais par contre $2 \mathbin{R} 4$ est faux. Si on considère maintenant $R'$, la règle $(1)$ nous permet de déduire que $2 \mathbin{R'} 3$ et $3\mathbin{R'} 4$. La règle $(2)$ nous permet de déduire que $2 \mathbin{R'} 4$. Ici, $R'$ correspond à la relation d'ordre stricte usuelle sur les entiers.
+
+\begin{prop}
+Soit $R$ une relation binaire, $R'$ est la plus petite relation transitive qui contient $R$.
+\end{prop}
+
+\begin{demo}
+Par définition, $R'$ est transitive. Soit $T$ une relation transitive qui contient $R$, alors $T$ satisfait la règle $(1)$ car elle contient $R$ et la règle $(2)$ car elle est transitive. $R'$ étant la plus petite relation vérifiant $(1)$ et $(2)$, on a bien que $R'$ est inclue dans $T$.
+\end{demo}
+
+\begin{defi}[Clôture transitive et réflexive]
+Soit $R$ une relation binaire sur un ensemble $S$, on appelle $R^*$ la clôture transitive et réflexive de $R$ définie par :
+$$
+\begin{prooftree}[center=false]
+\hypo{ t \mathbin{R} u}
+\infer[left label = $(1)$]1{ t \mathbin{R^*} u}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center=false]
+\hypo{u \mathbin{R^*} v \quad v \mathbin{R^*} t}
+\infer[left label = $(2)$]1{ u \mathbin{R^*} t}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center=false]
+\hypo{u \in S}
+\infer[left label = $(3)$]1{ u \mathbin{R^*} u}
+\end{prooftree}
+$$
+\end{defi}
+
+\begin{prop}
+Soit $R$ une relation binaire, $R^*$ est la plus petite relation réflexive et transitive qui contient $R$.
+\end{prop}
+
+On prouve cette proposition de la même manière que précédemment.
+
+\subsection{Relations biens fondées}
+\label{RBF}
+
+\begin{defi}[Tiers exclu]
+Le tiers exclu est la propriété qui dit que pour toute proposition $A$, on a $A \lor \neg A$. C'est équivalent à $\neg \neg A \Rightarrow A$. Sans cette règle, il n'est pas possible de raisonner par l'absurde. 
+\end{defi}
+
+\begin{defi}[Accessibilité]
+\label{acces}
+Soit $S$ un ensemble, $R$ une relation binaire sur $S$. $\mathbf{acc}$ est la plus petite relation unaire qui vérifie :
+$$(A) \ \forall x \in S, \  ( \forall y \in S, \ y\mathbin{R} x \Rightarrow\mathbf{acc}(y) ) \Rightarrow\mathbf{acc}(x) $$ 
+Si $x \in S$ vérifie $\mathbf{acc}$, on dit alors que $x$ est accessible (relativement à $R$).
+\end{defi}
+
+\begin{defi}[Relation bien fondée]
+\label{BF}
+On dit que $R$ est bien fondée si tous les éléments de $S$ sont accessibles.
+\end{defi}
+
+Il existe plusieurs définitions de relation bien fondée :
+
+\begin{itemize}
+\setlength\itemsep{ -1.3 em}
+\item[$(1*)$] celle qu'on vient d'introduire\\
+\item[$(2*)$] toute partie de $S$ admet un élément $R$-minimale :\\ $\forall E \subset S, \ \exists m \in E, \ \forall e \in E, \ \neg (e \mathbin{R} m)$\\
+\item[$(3*)$] il n'existe pas de suite $(u_n)_{n \in \mathbb{N}} \in S^{\mathbb{N}}$ infiniment décroissante :\\ $\neg( \exists (u_n)_{n \in \mathbb{N}} \in S^{\mathbb{N}}, \ \forall n \in \mathbb{N}, \ u_{n+1} \mathbin{R} u_n)$
+\end{itemize}
+
+En logique classique, ces trois définitions sont équivalentes. Dans la suite de ce document, on se plaçera dans des systèmes sans tiers exclu et sans axiome du choix. Ainsi, il n'y aura pas équivalence. On verra alors que la définition qui a été donnée est la plus appropriée.
+
+\begin{theo}[Récurrence bien fondée]
+\label{rec bf}
+Soit $R$ une relation binaire bien fondée sur un ensemble $S$. Soit $P$ une propriété telle que $$\forall x \in S, (\forall y \in S, \ y \mathbin{R} x \Rightarrow P(y)) \Rightarrow P(x)$$ alors $\forall x \in S, P(x)$.
+\end{theo}
+
+\begin{demo} $P$ satisfait $(A)$ or $\mathbf{acc}$
+est la plus petite relation qui satisfait $(A)$ donc $\mathbf{acc}\subset P$. Par hypothèse, $R$ est bien fondée donc $\mathbf{acc}$ est vrai pour tous les éléments de $S$ donc $P$ est vrai pour tous les éléments de $S$. 
+\end{demo}
+
+Cette notion de récurrence est plus appropriée que la notion usuelle de récurrence, dans le cadre qu'on verra à la section
+\ref{paradoxe de girard}.
+
+\begin{theo}[$(1*) \Rightarrow(3*)$]
+\label{un trois}
+Être bien fondé au sens $(1*)$ implique qu'il n'existe pas de suite décroissante infinie. 
+\end{theo}
+
+\begin{demo} Soit $R$ une relation bien fondée sur
+$S$ un ensemble. Soit $P$ la propriété, pour tout $x \in S$ :
+$$P(x) := \neg( \exists (u_n)_{n \in \mathbb{N}} \in S^\mathbb{N}, \ (u_0 \mathbin{R} x) \land (\forall n \in \mathbb{N}, \ u_{n +1} \mathbin{R} u_n))$$
+En language naturel : $P(x)$si et seulement si il n'existe pas de suite décroissante
+infinie à partir de $x$. Soit $x \in S$ tel que
+$\forall y \in S, \ y \mathbin{R} x \Rightarrow P(y)$. On va montrer
+$P(x)$, ce qui nous permettra de conclure par récurrence bien fondée
+que $\forall x \in S, \ P(x)$. Supposons qu'il existe une suite
+$(u_n)_{n \in \mathbb{N}}$ infinie décroissante à partir de $x$. On
+en déduit qu'il existe une suite infinie décroissante à partir de
+$u_0$, or $u_0 \mathbin{R} x$. Donc, par hypothèse, on a $P(u_0)$.
+Contradiction, donc il n'existe pas de suite décroissante à partir de
+$x$. On vient donc de montrer que
+$$\forall x \in S, (\forall y \in S, \ y \mathbin{R} x \Rightarrow P(y)) \Rightarrow P(x)$$
+Par récurrence bien fondée, on en déduit $\forall x \in S, P(x)$.
+\end{demo}
+
+\clearpage
+
+\paragraph{Remarque}
+
+Dans cette démonstration, ni l'axiome du choix ni le tiers exclu
+n'interviennent. Ainsi, cette implication est vraie même dans des
+systèmes logiques sans axiome du choix ni tiers exclu (cadre dans lequel
+on se placera à la section \ref{paradoxe de girard}).
+
+\clearpage
+
+\section{Lambda-calcul}
+\label{lambda-calcul}
+
+Une grande partie des définitions de cette section sont tirées du livre \textit{Lambda-calcul types et modèles} de J.L. Krivine \cite{Lambda-calc}.
+
+\subsection{Motivations}
+
+Le but de cette section n'est pas d'étudier le $\lambda$-calcul en temps que sujet mais simplement d'en comprendre les bases car c'est un formalisme indispensable aux théories des types. Ainsi, on va énoncer des propriétés qui ne seront pas toutes démontrées. En effet, la preuve de beaucoup d'entre elles se fait par récurrence sur la structure des termes et n'apporte pas beaucoup à la compréhension globale. La partie \ref{alpha-equivalence} n'a pas besoin d'être lue en intégralité pour la compréhension du reste de ce document. Il faut cependant avoir compris que la notion de variable liée (ou muette), qui est considérée en mathématiques classiques comme une évidence, est un problème qui nécessite un traitement spécifique non trivial.
+
+\subsection{Termes et substitution}
+\label{termes et substitution}
+
+\begin{defi}[$\lambda$-termes]
+Les termes du $\lambda$-calcul sont des suites finies de symboles. Les symboles sont : "$($", "$)$",  "$\lambda$" , "." (qui jouent un rôle particulier) et un ensemble infini dénombrable de symboles (par exemple contenant l'alphabet) qu'on appelle les variables. "$=$" dans ce contexte représente l'égalité symbolique, deux termes sont égaux s'ils ont les mêmes symboles dans le même ordre. Soit $L$ l'ensemble des termes, on le définit par induction :
+
+\begin{itemize}
+\setlength\itemsep{ -1.5 em}
+\item les variables sont des termes\\
+\item soit $t$ et $u$ des termes, alors $( u ) t $ est un terme\\
+\item soit $x$ une variable et $t$ un terme, alors $\lambda x . t$ est un terme 
+\end{itemize}
+\label{lambda-terme}
+\end{defi}
+
+Les termes du $\lambda$-calcul sont appelés des $\lambda$-termes. Quand on dit "soit $t$ un $\lambda$-terme'' il faut le comprendre comme $t \in L$. On s'autorisera la notation $xyz$ pour $((x)y)z$.\\ \label{conv parent}
+
+Au lieu de voir les termes comme des suites de symboles, on peut aussi les voir comme des arbres, ce qui est la manière standard de faire en informatique. Ici, on se contentera de les voir comme des suites de symboles.\\
+
+Les termes de la forme $\lambda x . u$ sont appelés des abstractions. On peut les penser comme des fonctions. Par exemple $\lambda x . x$ "est'' la fonction qui à $x$ associe $x$. Cet aspect sera développé dans la partie \ref{beta-reduction et propriete de church-rosser}.
+
+\clearpage
+
+\begin{defi}[Occurrences libres]
+Les occurrences libres d'une variable $x$ sont définies par induction :
+\begin{itemize}
+\setlength\itemsep{ -1.5 em}
+\item soit $t$  une variable, si $t=x$ l'occurence de $x$ dans $t$ est libre.\\
+\item soit $t = (u)v$ les occurrences libres de $x$ dans $t$ sont celles de $x$ dans $u$ et dans $v$ \\
+\item soit $t = \lambda y.u$ (avec $y$ une variable quelconque) les occurrences libres de $x$ dans $t$ sont celles de $x$ dans $u$ si $y \neq x$. Si $x = y$, alors $x$ n'a pas d'occurrence libre dans $t$.
+\end{itemize}
+\end{defi}
+
+\paragraph{Exemple}
+Soit $t := \lambda x.u$ et $t' := \lambda y.u$, $x$ n'a pas d'occurence libre dans $t$ et les occurrences libres de $x$ dans $t'$ sont les occurrences libres de $x$ dans $u$.
+
+\begin{defi}
+Soit $t$ un terme. On dit qu'une variable de $t$ est libre si elle a au moins une occurence libre dans $t$. Une variable de $t$ est liée si elle apparaît après un $\lambda$. Un terme sans variable libre est un terme clos.
+\end{defi}
+
+\paragraph{Exemples}
+\begin{itemize}
+\setlength\itemsep{ -1.5 em}
+\item la variable $x$ est liée dans $\lambda x.u$\\
+\item la variable $x$ est libre dans $(x)y$ \\
+\item la variable $x$ est libre dans $x$\\
+\item la variable $x$ est libre \textbf{et} liée dans $(\lambda x.u) x$\\
+\end{itemize}
+
+\begin{defi}[Remplacement dans $L$]
+Soit $t, u_1, \dots, u_n$ des termes et $x_1, \dots, x_n$ des variables distinctes. On note $t  \langle u_1/x_1, \dots, u_n/x_n \rangle$ le remplacement des variables $x_1, \dots, x_n$ par les termes $u_1, \dots, u_n$  dans le terme $t$. Si une variable $x_{i_0}$ n'a pas d'occurence libre dans $t$ alors la remplacer ne change pas le terme : $$t  \langle u_1/x_1, \dots, u_{i_0}/x_{i_0}, \dots, u_n/x_n \rangle = t  \langle u_1/x_1, \dots, u_{i_0 - 1}/x_{i_0 - 1}, u_{i_0 +1}/x_{i_0 + 1}, \dots, u_n/x_n \rangle $$
+\end{defi}
+
+\paragraph{Exemples}
+\begin{itemize}
+\setlength\itemsep{ -1.5 em}
+\item $ ( xy ) \langle z/y \rangle = xz $\\
+\item $ ( \lambda x.y ) \langle z/y \rangle =  \lambda x.z $ \\
+\item $ ( \lambda x.y ) \langle z/x \rangle =  \lambda x.y $ (car $x$ n'a pas d'occurence libre dans $\lambda x.y $) \\
+\item $ ( \lambda x.y ) \langle z/a \rangle =  \lambda x.y $ (car $a$ n'a pas d'occurence libre dans $\lambda x.y $)\\
+\item $ ( xxy ) \langle z/x, a/y  \rangle = zza $ \\
+\item $ x \langle z/x \rangle \langle a/z \rangle = a$\\
+\item $ (\lambda x.y) \langle x/y \rangle = \lambda x . x$\\
+\end{itemize}
+
+Le dernier exemple est une illustration du problème de capture. En effet les $\lambda$-termes $(\lambda x.z)$ et $(\lambda y.z)$ sont en un certain sens les mêmes, la variable $z$ est libre dans les deux termes. Par contre, les $\lambda$-termes $(\lambda x.y)$ et $(\lambda x.x)$ sont différents, le premier a une variable libre alors que le second est clos. L'opération de remplacement du dernier exemple a changé une variable (en l'occurrence $y$) en une autre variable ($x$) qui à été capturée par la variable $x$ sous le symbole $\lambda$. Le terme en a été fondamentalement changé, c'est ce qu'on appelle une capture.
+
+\subsection{Alpha-équivalence}
+\label{alpha-equivalence}
+
+\begin{defi}[$\alpha$-équivalence]
+On définit une relation sur l'ensemble des termes du $\lambda$-calcul $L$, qu'on appelle $\alpha$-équivalence et qui se note $\equiv$. L' $\alpha$-équivalence est définie par induction :
+\begin{itemize}
+\setlength\itemsep{ -1.5 em}
+\item soit $x$ et $x'$ des variables alors $x \equiv x'$ si et seulement si $x = x'$\\
+\item soit $u := (w)v$ et $u'$ des termes alors $u \equiv u'$ si et seulement si $u'$ est de la forme $u' = (w')v'$ avec $w'$ et $v'$ des termes et $w \equiv w'$ et $v \equiv v'$\\
+\item soit $u :=  \lambda x.v$ et $u'$ des termes alors $u \equiv u'$ si et seulement si $u'$ est de la forme $u' = \lambda x'.v'$ avec $v'$ un terme et $v \langle y/x \rangle \equiv v' \langle y/x' \rangle$ pour toute variable $y$ sauf un nombre fini.
+\end{itemize}
+\end{defi}
+
+La raison pour laquelle on demande "pour toute variable $y$ sauf un nombre fini'' est pour éviter les problèmes de capture. En effet, il ne peut y avoir de problème de capture que pour un nombre fini de variables, d'où la nécéssité d'avoir un ensemble de variables infini dénombrable.\\
+
+En mathématiques usuelles, les fonctions $f: x \mapsto x$ et $f: y \mapsto y$ sont identiques tout comme les formules $\forall x, \ P(x)$ et $\forall y, \ P(y)$ puisque les variables $x$ et $y$ sont muettes. On aimerait formaliser cette notion de variable muette dans les termes du $\lambda$-calcul et dire que $\lambda x.x$ et $\lambda y.y$ sont égaux pour une certaine définition de l'égalité. L' $\alpha$-équivalence correspond exactement à cette "certaine définition de l'égalité''. Par exemple, $\lambda x.x \equiv \lambda y.y$, on le voit en utilisant la définition par induction avec $v = x$ et $v' = y$.\\
+
+On peut aussi utiliser le formalisme du $\lambda$-calcul pour formaliser la notion de variable muette en mathématiques. Par exemple, $\forall x, P(x)$ devient $\forall ( \lambda x. P(x))$. $\forall$ est alors une fonction et puisqu'on est à $\alpha$-équivalence près on a bien $\forall ( \lambda x. P(x)) \equiv \forall ( \lambda y. P(y))$.
+
+\begin{prop}
+L'$\alpha$-équivalence est une relation d'équivalence.
+\end{prop}
+
+\begin{prop}
+Soit $u$ et $u'$ des termes, $u \equiv u'$ implique que $u$ et $u'$ ont les mêmes variables libres.
+\end{prop}
+
+\begin{prop}
+\label{p1}
+Soit $u$, $u'$ et $t$ des termes, $x$ une variable. Si $u \equiv u'$ et si aucune variable libre de $t$ n'est liée dans $u$ ou $u'$ alors $u \langle t/x \rangle \equiv u' \langle t/x \rangle$
+\end{prop}
+
+\paragraph{Exemple}
+Si $u := \lambda x. xz$ et $u' := \lambda y.yz$ on a bien
+$u \equiv u'$ mais
+$$u \langle x/z \rangle = \lambda x.xx \not \equiv \lambda y.yx = u' \langle x/z \rangle$$
+Car on a substitué la variable $z$ par un terme qui est la variable
+$x$, qui est liée dans $u$.
+
+\begin{defi}[Passage au contexte]
+Soit $R$ une relation binaire sur $L$. On dit que $R$ passe au contexte si : \\
+pour tout  $t, t', u, u' \in L$ et pour toute variable $x$;
+$$ t \mathbin{R} t' \Rightarrow\lambda x.t \mathbin{R} \lambda x.t' \quad \text{et} \quad t \mathbin{R} t' \land u \mathbin{R} u' \Rightarrow(u)t  \mathbin{R} (u')t' $$
+\end{defi}
+
+\begin{prop}
+La relation $\equiv$ passe au contexte.
+\end{prop}
+
+\begin{demo} Soit $u$ et $u'$ des termes et $u \equiv u'$. Montrer $\lambda x.u \equiv \lambda x.u'$ revient à montrer $u \langle y/x \rangle \equiv u' \langle y/x \rangle$ pour toute variable $y$ sauf un nombre fini. Or $u$ et $u'$ étant des termes, ils ont un nombre fini de symboles et donc ont un nombre fini de variables liées. Donc pour toute variable $y$ qui n'est pas une variable liée de $u$ ou $u'$, on a bien $u \langle y/x \rangle \equiv u' \langle y/x \rangle$ par la proposition \ref{p1}. L'autre condition pour que $\equiv$ passe au contexte est vraie par définition de $\equiv$.
+\end{demo}
+
+\begin{defi}
+On note $\Lambda =  \faktor{L}{\equiv}$ l'ensemble des termes quotienté par la relation d'$\alpha$-équivalence.
+\end{defi}
+
+On remarque que la classe d'équivalence d'une variable $x$ est ${x}$ car deux variables sont $\alpha$-équivalentes uniquement si elles sont les mêmes. De plus, on peut définir une notion de variable libre dans $\Lambda$ car deux termes $\alpha$-équivalents ont les mêmes variables libres. Les opérations $u,v \mapsto (u)v$ et $u,x \mapsto \lambda x.u$ sont compatibles avec $\equiv$. Par exemple dans le cas de la première opération, si $u \equiv u'$ et $v \equiv v'$ alors $(u)v \equiv (u')v'$. Il s'agit de la même notion de compatibilité que celle entre la loi d'un groupe et la loi d'un de ses groupes quotient. On peut donc définir ces opérations sur $\Lambda$.
+
+\begin{defi}[Substitution sur $\Lambda$]
+Soit $u$, $t_1, \dots, t_k$ des termes et soit $x_1, \dots, x_k$ des variables distinctes : $u[t_1/x_1, \dots, t_k/x_k] := u' \langle t_1/x_1, \dots, t_k/x_k \rangle$ avec $u' \equiv u$ tel qu'aucune variable liée de $u'$ ne soit libre dans $t_1, \dots, t_k$ (on admet qu'il est toujours possible de trouver un tel u').
+\label{substitution}
+\end{defi}
+
+\paragraph{Exemples}
+\begin{itemize}
+\setlength\itemsep{ -1.5 em}
+\item $(\lambda x. y)[x/y] \equiv \lambda b.x$ alors que $(\lambda x. y) \langle x/y \rangle = \lambda x.x$\\
+\item $(\lambda x.xz)[(xy)/z] \equiv \lambda k.k(xy)$ alors que $(\lambda x.xz) \langle (xy)/z \rangle = \lambda x.x(xy)$\\
+\item $x[y/x] \equiv y$ 
+\end{itemize}
+
+En utilisant les notations de la dernière definition, on remarque que la classe d'équivalence de $u[t_1/x_1, \dots, t_k/x_k]$ ne dépend pas du choix de $u'$. Cela s'illustre dans le premier exemple où on a choisi de remplacer $x$ par $k$ mais on aurait tout aussi bien pu choisir une autre variable différente de $x$ et $y$.
+
+\subsection{Bêta-réduction et propriété de Church-Rosser}
+\label{beta-reduction et propriete de church-rosser}
+
+Dans la suite, on va confondre $=$ et $\equiv$ étant donné qu'on travaille dans $\Lambda$.
+
+\begin{prop}
+\label{p2}
+Soit $u, u', t, t'$ des $\lambda$-termes, si $(\lambda x.u)t \equiv (\lambda x'.u')t'$ alors $u[t/x] \equiv u'[t'/x']$
+\end{prop}
+
+\begin{defi}
+Un terme de la forme $(\lambda x.u)t$ est appelé un redex, $u[t/x]$ est appelé son contracté. La proposition $\ref{p2}$ garantit que cette notion est bien définie sur $\Lambda$.
+\end{defi}
+
+\begin{defi}
+On définit la relation binaire $\beta_0$ sur $\Lambda$. $t \mathbin{\beta_0} t'$ se lit : "$t'$ est obtenu en contractant un redex de $t$" ou encore "$t'$ est obtenu par $\beta$-réduction de $t$ en 1 étape". On définit $\beta_0$ par induction :
+
+\begin{itemize}
+\setlength\itemsep{ -1.5 em}
+\item soit $x$ une variable alors $x \mathbin{\beta_0} t$ est faux pour tout $t$\\
+\item soit $t := \lambda x.u$ un terme, alors $t \mathbin{\beta_0} t'$ si et seulement si $t' = \lambda x.u'$ avec $u \mathbin{\beta_0} u'$\\
+\item soit $t := (u)v$ un terme, alors $t \mathbin{\beta_0} t'$ si et seulement si:
+         \begin{itemize}
+         \setlength\itemsep{ -1.5 em}
+         \item ou bien $t' = (u)v'$ avec $v \mathbin{\beta_0} v'$\\
+         \item ou bien $t' = (u')v$ avec $u \mathbin{\beta_0} u'$\\
+         \item ou bien $u = \lambda x.w$ et $t' = w[v/x]$
+         \end{itemize}
+\end{itemize}  
+\end{defi}
+
+\paragraph{Exemples}
+\begin{itemize}
+\setlength\itemsep{ -1.3 em}
+\item $(\lambda x.x)t$ se $\beta$-réduit en $x[t/x] = t$. On peut voir cela comme le résultat de l'application de la fonction identité à $t$\\
+\item $( \lambda x. xyz)t$ se $\beta$-réduit en $(xyz)[t/x] = tyz$\\
+\item $( \lambda x.(\lambda y. xy))t$ se $\beta$-réduit en $ (\lambda y. xy)[t/x] = \lambda y.ty$ en supposant que la variable $y$ ne soit pas libre dans $t$ \\
+\item $((\lambda x.x)t)((\lambda x.x)t)$ se $\beta$-réduit en $(t)((\lambda x.x)t)$ ou en $((\lambda x.x)t)(t)$
+\end{itemize}
+
+La $\beta$-réduction, de par son nom et avec les exemples qui sont donnés ci-dessus, laisse supposer qu'on "réduit'' une certaine quantité, en l'occurrence la longueur du terme. Cependant, l'exemple suivant démontre que ce n'est pas toujours le cas :
+$$\delta := \lambda x.xx, \ \delta \delta \text{ se $\beta$-réduit en } (xx)[\delta/x] = \delta \delta$$
+On a alors une suite de réductions infinie. La longueur du terme peut même augmenter :
+$$t := \lambda x. ((xx)x), \ t t \text{ se $\beta$-réduit en } ((xx)x)[t/x] = (t t)t \ \text{ qui se $\beta$-réduit en }((t t) t) t$$
+
+\begin{defi}
+On définit la relation binaire $\beta$ sur $\Lambda$ comme la clôture réflexive et transitive de $\beta_0$. On appelle cette relation la $\beta$-réduction.
+\end{defi}
+
+\clearpage
+
+\begin{defi}
+Un terme $t$ est dit normal ou en forme normale s'il ne contient aucun redex. Les termes normaux sont les termes obtenus en appliquant un nombre fini de fois les règles suivantes :
+\begin{itemize}
+\setlength\itemsep{ -1.5 em}
+\item si $x$ est une variable alors $x$ est normal\\
+\item si $t$ est normal alors $\lambda x.t$ est normal\\
+\item si $u$ et $t$ sont normaux et si $u$ ne commence pas par $\lambda$ alors $(u)t$ est normal
+\end{itemize}
+\end{defi}
+
+Un terme normal est donc un terme $t$ tel que $t \mathbin{\beta} t' \Rightarrow t \equiv t'$.\\
+Il s'en suit que les termes normaux sont exactement ceux de la forme :
+$$\lambda x_1. \dots \lambda x_k. xt_1 \dots t_n$$
+avec $k,n \geq 0$; $x_1, \dots, x_k, x$ des variables et $t_1, \dots, t_n$ des termes normaux.
+
+\begin{defi}[Normalisation]
+Un terme $t$ est dit normalisable s'il existe un terme normal $t'$ tel que $t  \mathbin{\beta} t'$.
+\end{defi}
+
+\begin{defi}[Normalisation forte]
+\label{normalisation forte}
+Un terme $t$ est dit fortement normalisable s'il n'existe aucune suite infinie $t_0 = t, t_1, \dots$ telle que $t_i \mathbin{\beta} t_{i+1}$ pour tout $i > 0$.
+\end{defi}
+
+\paragraph{Exemples}
+\begin{itemize}
+\setlength\itemsep{ -1.5 em}
+\item le terme $\delta \delta$ n'est pas normalisable\\
+\item $t := (\lambda x.xx) \lambda x.x$ est fortement normalisable car $t$ se $\beta$-réduit en $(\lambda x.x) \lambda x.x$ qui se $\beta$-réduit en $ \lambda x.x $ qui est normal. Et on a exploré toutes les $\beta$-réductions possibles\\
+\item $(\lambda x.y) (\delta \delta)$ est normalisable mais pas fortement normalisable. En effet, il se $\beta$-réduit en $y[(\delta \delta)/x] = y$ (car $x$ n'a pas d'occurence libre dans $y$) qui est normal. Il peut aussi se réduire en lui-même si on choisit de réduire la partie en $\delta \delta$
+\end{itemize}
+
+\begin{defi}[PCR]
+\label{PCR}
+Soit $R$ une relation binaire, on dit que $R$ a la propriété de Church-Rosser (PCR) si :
+$$\forall t,u,u'; \ (t \mathbin{R} u) \ \land \ (t \mathbin{R} u' ) \Rightarrow\exists v; \ (u \mathbin{R} v) \ \land \ (u' \mathbin{R} v)$$
+\end{defi}
+
+\begin{theo}
+La $\beta$-réduction a la Propriété de Church-Rosser.
+\end{theo}
+
+\begin{theo} 
+Il y a unicité de la forme normale lorsqu'elle existe.
+\end{theo}
+
+\begin{demo}
+si $t_1$ et $t_2$ sont normaux et si $t \mathbin{\beta} t_1$ et $t \mathbin{\beta} t_2$ alors, d'après la PCR, il existe un terme $t_3$ tel que $t_1 \mathbin{\beta} t_3$ et $t_2 \mathbin{\beta} t_3$ or $t_1$ et $t_2$ sont normaux donc $t_1 \equiv t_3 \equiv t_2$
+\end{demo}
+
+\clearpage
+
+\section{Déduction naturelle et logiques d'ordre supérieur}
+\label{DN et sup}
+
+\subsection{Déduction naturelle}
+
+\begin{defi}[Formules propositionnelles]
+Soit un ensemble $\mathcal{V}$ (qui contient par exemple l'alphabet en majuscules) qu'on appellera l'ensemble des variables propositionnelles. On définit inductivement l'ensemble $\mathcal{F_P}$ des formules propositionnelles comme une partie de l'ensemble des suites finies de variables et de symboles "$\Rightarrow$", "$\land$", "$\bot$", (", ")", :
+$$
+\begin{prooftree}[center=false]
+\hypo{ A \in \mathcal{V}}
+\infer1{ A \in \mathcal{F_P}}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center=false]
+\hypo{A \in \mathcal{F_P} \quad B \in \mathcal{F_P}}
+\infer1{(A \Rightarrow B) \in \mathcal{F_P}}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center=false]
+\hypo{A \in \mathcal{F_P} \quad B \in \mathcal{F_P}}
+\infer1{ (A \land B) \in \mathcal{F_P}}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center=false]
+\infer0{ \bot \in \mathcal{F_P}}
+\end{prooftree}
+$$
+\end{defi}
+
+Avant d'aller plus loin dans l'abstraction on peut imaginer les variables propositionnelles comme pouvant valoir "vrai'' ou "faux''. Ainsi la formule $A \land B$ est vraie si $A$ et $B$ sont vrais, et fausse si $A$ ou $B$ est faux. La formule $A \Rightarrow A$ est tout le temps vraie peu importe la valeur de $A$ (cf \ref{tab verite}). Pour savoir si une formule est toujours vraie (on dit qu'elle est valide) il suffit alors de la tester pour toutes les valeurs possibles des variables. La formule $A \Rightarrow B$ n'est pas valide car, si $A$ est vrai et si $B$ est faux alors $A \Rightarrow B$ est faux. Voir les variables de manière binaire comme on vient de le décrire suppose le tiers exclu. En effet, la formule $A \lor (A \Rightarrow\bot)$ est valide, pour s'en rendre compte il suffit de la tester pour $A$ vrai et $A$ faux.\\ 
+
+On va maintenant donner un autre sens à "$A$ est vrai'' que le sens calculatoire dont on vient de parler, en considérant qu'une formule est vraie si on peut la prouver.
+
+\begin{defi}[Séquent]
+Un séquent est un couple formé d'un ensemble de formules $\Gamma$ appelé les hypothèses et d'une formule $P$ appelée la conclusion. On les notes $ \Gamma \vdash P$.
+\label{sequent}
+\end{defi}
+
+\paragraph{Remarque}
+
+Si $A_1, \dots, A_n$ sont des formules on note $A_1, \dots, A_n \vdash P$ le séquent ${A_1, \dots, A_n} \vdash P$. De plus l'ensemble des hypothèses peut être vide. On note alors $ ~ \vdash A $. On s'autorise à pouvoir avoir dans les hypothèses plusieurs fois la même formule.
+
+\begin{defi}[Déduction naturelle]
+La déduction naturelle est un système d'inférence sur les séquents. Si un séquent appartient à l'ensemble défini par ces règles, on dit qu'il est prouvable. Dans la suite, $\Gamma$ est un ensemble de formules propositionnelles quelconque.
+$$
+\begin{prooftree}[center = false]
+\infer0[(\textit{hyp})]{\Gamma, A \vdash A}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center = false]
+\hypo{\Gamma \vdash A \quad \Gamma \vdash B}
+\infer1[$(\land \mathcal{I})$]{\Gamma \vdash A \land B}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center = false]
+\hypo{\Gamma, A \vdash B}
+\infer1[$(\Rightarrow\mathcal{I})$]{\Gamma \vdash A \Rightarrow B}
+\end{prooftree}
+$$
+$$
+\begin{prooftree}[center = false]
+\hypo{\Gamma \vdash A \land B}
+\infer1[$(\land^1 \mathcal{E})$]{\Gamma \vdash A}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center = false]
+\hypo{\Gamma \vdash A \land B}
+\infer1[$(\land^2 \mathcal{E})$]{\Gamma \vdash B}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center = false]
+\hypo{\Gamma \vdash A \Rightarrow B \quad \Gamma \vdash A}
+\infer1[$(\Rightarrow\mathcal{E})$]{\Gamma \vdash B}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center = false]
+\hypo{\Gamma \vdash \bot}
+\infer1[$(\bot \mathcal{E})$]{\Gamma \vdash C}
+\end{prooftree}
+$$
+\label{DN1}
+\end{defi}
+
+\paragraph{Explication intuitive des règles}
+\begin{itemize}
+\setlength\itemsep{ -1.5 em}
+\item[(\textit{hyp})] si $A$ est dans notre ensemble d'hypothèses, alors, sous ces hypothèses, on peut conclure que $A$ est vrai\\
+\item[$(\land \mathcal{I})$] si, sous les hypothèses $\Gamma$, on a prouvé $A$ et si, sous les hypothèses $\Gamma$, on a prouvé $B$, alors on peut en déduire que, sous les hypothèses $\Gamma$, on a prouvé $A \land B$\\
+\item[$(\Rightarrow\mathcal{I})$] si, sous les hypothèses $\Gamma$ et $A$, on a prouvé $B$, alors on peut en déduire que, sous les hypothèses $\Gamma$, on a prouvé $A \Rightarrow B$\\
+\item[$(\land^1 \mathcal{E})$] si, sous les hypothèses $\Gamma$, on a prouvé $A \land B$, alors on peut en déduire que, sous les hypothèses $\Gamma$, on a prouvé $A$\\
+\item[$(\land^2 \mathcal{E})$] si, sous les hypothèses $\Gamma$, on a prouvé $A \land B$, alors on peut en déduire que, sous les hypothèses $\Gamma$, on a prouvé $B$\\
+\item[ $(\Rightarrow\mathcal{E})$] si, sous les hypothèses $\Gamma$, on a prouvé $A \Rightarrow B$ et si, sous les hypothèses $\Gamma$, on a prouvé $A$, alors on peut en déduire que, sous les hypothèses $\Gamma$, on a prouvé $B$. Cette règle est aussi appelée \textit{modus ponens}.\\
+\item[$(\bot \mathcal{E})$]  si, sous les hypothèses $\Gamma$, on a prouvé $\bot$, alors on peut en déduire que, sous les hypothèses $\Gamma$, on peut prouver n'importe quelle formule.
+\end{itemize}
+
+Lorsqu'on met de côté l'aspect très syntaxique, ces règles ne sont absolument pas surprenantes, elles vont de soi. C'est pour cela que ce système s'appelle déduction \textbf{naturelle}.\\
+
+Les règles qui se terminent en $\mathcal{I}$ sont les règles d'introduction car elles introduisent un symbole dans la conclusion. Les règles qui se terminent en $\mathcal{E}$ sont les règles d'élimination car elles suppriment un symbole. Il y a une symétrie entre les règles d'introduction et les règles d'élimination.
+
+\begin{defi}[Arbre de dérivation]
+Un arbre de dérivation est une succession de règles qui aboutissent à un séquent. Prouver un séquent (ou montrer qu'un séquent est prouvable), c'est écrire un arbre de dérivation qui aboutit à ce séquent et dont les feuilles sont des règles hypothèses.
+\end{defi}
+
+\paragraph{Exemple}
+
+On va prouver en déduction naturelle le séquent
+$\ \vdash A \Rightarrow( B \Rightarrow A)$ : 
+$$
+\begin{prooftree}[center = false]
+\infer0[(\textit{hyp})]{A, B \vdash A}
+\infer1[ ($\Rightarrow\mathcal{I}$)]{A \vdash B \Rightarrow A}
+\infer1[($\Rightarrow\mathcal{I}$)]{\vdash A \Rightarrow( B \Rightarrow A)}
+\end{prooftree}
+$$
+
+Si $A$ est une formule, prouver le séquent $\ \vdash A$ revient à dire que la formule $A$ est "vraie'' sans aucune hypothèse. On vient donc de montrer que, sans aucune hypothèse et pour toutes formules $A$ et $B$, la formule $A \Rightarrow( B \Rightarrow A)$ est "vraie''. Les termes "vraie'' sont entre guillemets car il ne s'agit que de la notion intuitive. Dans le contexte de la déduction naturelle, il n'y que la notion de preuve (ou de vérité) pour un séquent qu'on a définie avant. Cependant, si $A$ est une formule, on peut montrer l'équivalence entre la validité de $A$, au sens calculatoire évoqué précédemment, et la prouvabilité du séquent $ ~\vdash A$. Il faut cependant rajouter la règle 
+$$
+\begin{prooftree}[center = false]
+\hypo{ A \Rightarrow\bot, \Gamma \vdash \bot}
+\infer1[(\textit{abs})]{\Gamma \vdash A}
+\end{prooftree}
+$$ 
+qui correspond au raisonnement par l'absurde, c'est-à-dire le tiers exclu. En effet, on ne peut pas déduire $\Gamma \vdash A$ à partir du séquent $A \Rightarrow\bot, \Gamma \vdash \bot$ dans le système décrit précédemment. Si on veut pouvoir utiliser l'absurde, il faut nécessairement rajouter cette règle.
+
+\begin{theo}[Affaiblissement des hypothèses]
+Si $\Gamma \subset \Delta$ et si $\Gamma \vdash A$ est prouvable, alors $\Delta \vdash A$ est prouvable.
+\end{theo}
+
+Ce théorème traduit juste le fait que si l'on peut démontrer une formule $A$ à partir d'hypothèses $\Gamma$, alors on peut rajouter des hypothèses en plus et toujours démontrer $A$. Il se prouve par récurrence sur la structure de l'arbre de dérivation.\\ Ce théorème n'est pas une règle de la déduction naturelle. Cependant, par souci de lisibilité, on notera son utilisation comme une règle notée (\textit{aff}).\\
+
+Dans ce système il n'y a pas de règles qui correspondent au symbole $\lor$. Il existe cependant une formule qui a des propriété similaires : $(A \Rightarrow\bot) \Rightarrow(B \Rightarrow\bot) \Rightarrow\bot$ (on peut s'en convaincre en utilisant la table de vérité).\\ 
+Une propriété du $\lor$ est que, si on a $A$, on peut déduire $A \lor B$, et si on a $B$, on peut déduire $A \lor B$. On va montrer que, si on a $\Gamma \vdash A$, on peut déduire $\Gamma \vdash (A \Rightarrow\bot) \Rightarrow(B \Rightarrow\bot) \Rightarrow\bot$ et que, si on a $\Gamma \vdash B$, on peut déduire $\Gamma \vdash (A \Rightarrow\bot) \Rightarrow(B \Rightarrow\bot) \Rightarrow\bot$ : 
+$$
+\begin{prooftree}[center = false]
+\infer0[(\textit{hyp})]{ \Gamma, A \Rightarrow\bot, B \Rightarrow\bot \vdash A \Rightarrow\bot}
+\hypo{\Gamma \vdash A}
+\infer1[(\textit{aff})]{ \Gamma, A \Rightarrow\bot, B \Rightarrow\bot \vdash A}
+\infer2[$(\Rightarrow\mathcal{E})$]{\Gamma, A \Rightarrow\bot, B \Rightarrow\bot \vdash \bot}
+\infer1[$(\Rightarrow\mathcal{I})*$]{\Gamma, A \Rightarrow\bot \vdash ( B \Rightarrow\bot) \Rightarrow\bot}
+\infer1[$(\Rightarrow\mathcal{I})$]{\Gamma \vdash (A \Rightarrow\bot) \Rightarrow( B \Rightarrow\bot) \Rightarrow\bot}
+\end{prooftree}
+$$ \vspace{0.5em} $$
+\begin{prooftree}[center = false]
+\infer0[(\textit{hyp})]{ \Gamma, A \Rightarrow\bot, B \Rightarrow\bot \vdash B \Rightarrow\bot}
+\hypo{\Gamma \vdash B}
+\infer1[(\textit{aff})]{ \Gamma, A \Rightarrow\bot, B \Rightarrow\bot \vdash B}
+\infer2[($\Rightarrow\mathcal{E}$)]{\Gamma, A \Rightarrow\bot, B \Rightarrow\bot \vdash \bot}
+\infer1[($\Rightarrow\mathcal{I} )*$]{\Gamma, A \Rightarrow\bot \vdash ( B \Rightarrow\bot) \Rightarrow\bot}
+\infer1[($\Rightarrow\mathcal{I}$)]{\Gamma \vdash (A \Rightarrow\bot) \Rightarrow( B \Rightarrow\bot) \Rightarrow\bot}
+\end{prooftree}
+$$ A l'étape $*$, en fonction de si on choisit de passer $A \Rightarrow\bot$ ou $B \Rightarrow\bot$ dans la conclusion, on peut déduire le séquent $\Gamma \vdash (A \Rightarrow\bot) \Rightarrow( B \Rightarrow\bot) \Rightarrow\bot$ ou $\Gamma \vdash (B \Rightarrow\bot) \Rightarrow( A \Rightarrow\bot) \Rightarrow\bot$. On a bien la symétrie à laquelle on s'attendait.\\ 
+
+On pourrait se demander, sachant que $(A \Rightarrow\bot) \Rightarrow( B \Rightarrow\bot) \Rightarrow\bot$ semble se comporter comme un $\lor$, si on a aussi la règle de disjonction de cas : 
+$$ 
+\begin{prooftree}[center = false]
+\hypo{\Gamma \vdash A \lor B \quad \Gamma, A \vdash C \quad \Gamma, B \vdash C}
+\infer1{ \Gamma\vdash C}
+\end{prooftree}
+$$ 
+On peut prouver qu'il n'est pas possible, à partir de $\Gamma \vdash (A \Rightarrow\bot) \Rightarrow( B \Rightarrow\bot) \Rightarrow\bot; \ \Gamma, A \vdash C$ et $\Gamma, B \vdash C$, de déduire $\Gamma \vdash C$. On n'a donc pas la disjonction de cas dans notre système. Cependant, cela devient le cas si on y ajoute la règle $(\textit{abs})$.\\ 
+
+On note $A \lor B := (A \Rightarrow\bot) \Rightarrow( B \Rightarrow\bot) \Rightarrow\bot$ et, par souci de lisibilité, on sépare l'arbre en deux : 
+$$
+\begin{prooftree}
+\hypo{\Gamma \vdash A \lor B}
+\infer1[(\textit{aff})]{\Gamma, C \Rightarrow\bot \vdash A \lor B}
+\infer0[(\textit{hyp})]{\Gamma, A, C \Rightarrow\bot \vdash C \Rightarrow\bot}
+\hypo{\Gamma, A \vdash C}
+         \infer1[(\textit{aff})]{\Gamma, A, C \Rightarrow\bot \vdash C}
+         \infer2[($\Rightarrow\mathcal{E}$)]{\Gamma, A, C \Rightarrow\bot \vdash \bot}
+          \infer1[($\Rightarrow\mathcal{I}$)]{\Gamma, C \Rightarrow\bot \vdash A \Rightarrow\bot}
+\infer2[($\Rightarrow\mathcal{E}$)]{\Gamma, C \Rightarrow\bot \vdash (B \Rightarrow\bot) \Rightarrow\bot}
+\end{prooftree}
+$$ 
+$$
+\begin{prooftree}
+\hypo{}
+\ellipsis{}{\Gamma, C \Rightarrow\bot \vdash (B \Rightarrow\bot) \Rightarrow\bot}
+\infer0[(\textit{hyp})]{\Gamma, B, C \Rightarrow\bot \vdash C \Rightarrow\bot}
+\hypo{\Gamma, B \vdash C}
+         \infer1[(\textit{aff})]{\Gamma, B, C \Rightarrow\bot \vdash C}
+         \infer2[($\Rightarrow\mathcal{E}$)]{\Gamma, B, C \Rightarrow\bot \vdash \bot}
+          \infer1[($\Rightarrow\mathcal{I}$)]{\Gamma, C \Rightarrow\bot \vdash B \Rightarrow\bot}
+\infer2[($\Rightarrow\mathcal{E}$)]{\Gamma, C \Rightarrow\bot \vdash \bot}
+\infer1[(\textit{abs})]{\Gamma \vdash C}
+\end{prooftree}
+$$
+
+\subsection{Logique du premier ordre}
+
+Une théorie en logique du premier ordre est la donnée d'une signature et d'un ensemble de formules qu'on appelle axiomes. On suppose qu'on se trouve en logique classique, avec les quantificateurs et les règles habituelles.
+
+\begin{defi}[Signature]
+Une signature, en logique du premier ordre, est un ensemble de symboles dits "de fonction" et de symboles dits "de prédicat". À chaque symbole on associe une arité qui correspond au "nombre d'arguments qu'il prend".
+\end{defi}
+
+\paragraph{Exemples} 
+\begin{itemize}
+\setlength\itemsep{ -1.5 em}
+\item $+$ est un symbole de fonction d'arité $2$ (on le note de manière infixe, c'est-à-dire $a + b$ au lieu de $+(a,b)$).\\
+\item $=$ est un symbole de prédicat d'arité $2$ (noté aussi de manière infixe).
+\end{itemize}
+
+Les symboles de fonction d'arité $0$ sont appelés "constantes''.
+
+\clearpage
+
+\begin{defi}[Termes]
+On définit les termes sur un ensemble infini de variables et une signature $\tau$ qui contient un ensemble de symboles de fonction $\mathcal{F}$ par induction :
+\begin{itemize}
+\setlength\itemsep{ -1.5 em}
+\item les constantes sont des termes\\
+\item les variables sont des termes\\
+\item si $f \in \mathcal{F}$ d'arité $n$ et si $x_1, \dots, x_n$ sont des termes, alors $f(x_1, \dots, x_n)$ est un terme
+\end{itemize}
+\end{defi}
+
+\begin{defi}[Formule]
+Une formule est une suite finie de symboles de prédicat et de symboles logiques, avec évidemment les règles usuelles de formation des formules.
+\end{defi}
+
+On peut intuitivement penser les symboles de fonction comme des fonctions sur les termes et les symboles de prédicat comme des fonctions qui vont des termes vers ${ \text{Vrai}, \text{Faux}}$.
+
+\paragraph{Exemple : théorie des groupes}
+
+On peut modéliser la théorie des groupes en se donnant la signature $\tau$, qui contient les symboles de fonctions $\mathcal{F} := { \cdot , 1, ^{-1}}$ d'arités respectives $2$, $0$ et $1$, et le symbole de prédicat $\mathcal{P} := {=}$ d'arité $2$. Ainsi que les axiomes :
+
+\begin{itemize}
+\setlength\itemsep{ -1.5 em}
+\item $\forall a, \ (a \cdot 1 = a) \land (1 \cdot a = a)$\\
+\item $\forall a,b,c, \ a \cdot (b \cdot c) =  (a \cdot b) \cdot c$\\
+\item $\forall a, \ ( a^{-1} \cdot a = 1) \land (a \cdot a^{-1} = 1)$\\
+\item $\forall a, \ a=a$\\
+\item $\forall a,b, \ a=b \Rightarrow b=a$\\
+\item $\forall a,b,c, \ (a=b \land b=c) \Rightarrow a = c$\\
+\item $\forall a,b, \ a=b \Rightarrow a^{-1} = b^{-1}$\\
+\item $\forall a,b,c,d, \ (a=b \land c=d) \Rightarrow(a \cdot c = b \cdot d)$
+\end{itemize}
+
+L'idée est la suivante : la signature nous donne des symboles et les axiomes décrivent comment ils se comportent. La théorie des ensembles est une théorie du premier ordre avec, entre autres, dans sa signature, les symboles de fonction ${ \cup, \cap, \varnothing}$, d'arités respectives $2$, $2$, et $0$, et le symbole de prédicat $\in$.\\
+
+On remarque que quand on écrit $\forall$ ou $\exists$, on ne quantifie jamais sur les symboles de la signature, uniquement sur les variables représentant des termes. La signature est figée.
+
+\subsection{Logique d'ordre supérieur}
+
+En logique d'ordre supérieur, on ne se donne pas nécessairement de signature. À la place, on va s'autoriser à quantifier sur des variables qui ne représentent pas seulement des termes. Le fait de s'autoriser cette quantification va donner beaucoup de puissance aux systèmes que l'on va construire. Ce qui suit est un exemple de système de déduction en logique d'ordre supérieur.
+
+\begin{defi}[Formules propositionnelles du second ordre]
+Soit un ensemble $\mathcal{V}$ que l'on appellera l'ensemble des variables. On définit inductivement l'ensemble $\mathcal{F_{P}}^2$ des formules propositionnelles du second ordre comme une partie de l'ensemble des suites finies de variables et de symboles "$\Rightarrow$", "$\forall$", (", ")", :
+$$
+\begin{prooftree}[center=false]
+\hypo{ X \in \mathcal{V}}
+\infer1{ X \in \mathcal{F_{P}}^2}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center=false]
+\hypo{A\in \mathcal{F_{P}}^2 \quad B \in \mathcal{F_{P}}^2}
+\infer1{A \Rightarrow B \in \mathcal{F_{P}}^2}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center=false]
+\hypo{X \in \mathcal{V} \quad A \in \mathcal{F_{P}}^2} 
+\infer1{\forall X, A \in \mathcal{F_{P}}^2}
+\end{prooftree}
+$$
+\end{defi}
+
+\begin{defi}[Déduction naturelle du second ordre]
+\label{regle DN2}
+La déduction naturelle du second ordre est le sytème d'inférence sur les séquents de $\mathcal{F_{P}}^2$ donné par les règles suivantes :
+$$
+\begin{prooftree}[center = false]
+\infer0[(\textit{hyp})]{\Gamma, A \vdash A}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center = false]
+\hypo{\Gamma, A \vdash B}
+\infer1[$(\Rightarrow\mathcal{I})$]{\Gamma \vdash A \Rightarrow B}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center = false]
+\hypo{\Gamma \vdash A}
+\infer1[$(\forall^2 \mathcal{I})$]{\Gamma \vdash \forall X.A}
+\end{prooftree}
+$$
+$$
+\begin{prooftree}[center = false]
+\hypo{\Gamma \vdash A \Rightarrow B \quad \Gamma \vdash A}
+\infer1[$(\Rightarrow\mathcal{E})$]{\Gamma \vdash B}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center = false]
+\hypo{\Gamma \vdash \forall X.A}
+\infer1[$(\forall^2 \mathcal{E})$]{\Gamma \vdash A[B/X]}
+\end{prooftree}
+$$
+Pour la règle $(\forall^2 \mathcal{I})$, $X \in \mathcal{V}$ et $X$ ne doit pas être libre dans $\Gamma$.\\
+Pour la règle $(\forall^2 \mathcal{E})$, $B$ est une formule quelconque et la substitution est celle sans capture, c'est-à-dire celle définie en \ref{substitution}.
+\end{defi}
+
+La définition de variable libre ou liée est la même que dans le $\lambda$-calcul (avec $\forall$ à la place de $\lambda$). $X$ est libre dans la formule $X \Rightarrow X$ et liée dans $\forall X. X \Rightarrow X$.\\
+
+En regardant les règles $(\forall^2 \mathcal{I})$ et $(\forall^2 \mathcal{E})$, on peut se dire qu'au final, il n'y a pas beaucoup de différence avec un "pour tout'' classique. En réalité, il y a une subtilité. La formule $B$ dans la règle $(\forall^2 \mathcal{E})$ est quelconque, on peut très bien remplacer $X$ par $\forall X.A$. Cela crée une circularité. On peut se demander (à juste titre) si cela ne crée pas de paradoxe. Dans ce cas précis, cette circularité ne cause pas de problème. Dans d'autres systèmes, elle cause en effet des problèmes et c'est cela qu'illustre le paradoxe de Girard.\\
+
+On peut aussi se demander pourquoi les règles pour le "$\land$'' et le "$\bot$'' ont été enlevées. La réponse est que le système que l'on vient de définir peut exprimer la même chose que le système précédent (\ref{DN1}) avec uniquement deux symboles :  $\forall$ et $\Rightarrow$. En effet, les règles pour "$\land$'' et "$\bot$'' ont des équivalents :\\
+
+$\forall X, X$ est l'équivalent de $\bot$ : il y a un parallèle entre $( \forall^2 \mathcal{E})$ appliqué au séquent $\Gamma \vdash \forall X.X$ et $( \bot \mathcal{E})$ 
+$$
+\begin{prooftree}[center = false]
+\hypo{\Gamma \vdash \forall X.X}
+\infer1[$(\forall^2 \mathcal{E})$]{\Gamma \vdash C}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center = false]
+\hypo{\Gamma \vdash \bot}
+\infer1[$(\bot \mathcal{E})$]{\Gamma \vdash C}
+\end{prooftree}
+$$
+
+\clearpage
+
+$\forall X, (A \Rightarrow(B \Rightarrow X)) \Rightarrow X$ est l'équivalent de $A \land B$. On va montrer qu'on peut déduire les séquents $\Gamma \vdash A$ et $\Gamma \vdash B$ à partir du séquent $\Gamma \vdash \forall X, (A \Rightarrow(B \Rightarrow X)) \Rightarrow X$:
+$$
+\begin{prooftree}[center = false]
+\hypo{\Gamma \vdash \forall X, (A \Rightarrow(B \Rightarrow X)) \Rightarrow X}
+\infer1[$(\forall^2 \mathcal{E})$]{\Gamma \vdash (A \Rightarrow(B \Rightarrow A)) \Rightarrow A}
+\infer0[(\textit{hyp})]{\Gamma, A, B \vdash A}
+\infer1[$(\Rightarrow\mathcal{I})$]{\Gamma, A \vdash B \Rightarrow A}
+\infer1[$(\Rightarrow\mathcal{I})$]{\Gamma \vdash A \Rightarrow(B \Rightarrow A)}
+\infer2[$(\Rightarrow\mathcal{E})$]{\Gamma \vdash A}
+\end{prooftree}
+$$ \vspace{0.5em} $$
+\begin{prooftree}[center = false]
+\hypo{\Gamma \vdash \forall X, (A \Rightarrow(B \Rightarrow X)) \Rightarrow X}
+\infer1[$(\forall^2 \mathcal{E})$]{\Gamma \vdash (A \Rightarrow(B \Rightarrow B)) \Rightarrow B}
+\infer0[(\textit{hyp})]{\Gamma, A, B \vdash B}
+\infer1[$(\Rightarrow\mathcal{I})$]{\Gamma, A \vdash B \Rightarrow B}
+\infer1[$(\Rightarrow\mathcal{I})$]{\Gamma \vdash A \Rightarrow(B \Rightarrow B)}
+\infer2[$(\Rightarrow\mathcal{E})$]{\Gamma \vdash B}
+\end{prooftree}
+$$ 
+Montrons maintenant qu'on peut déduire le séquent $\Gamma \vdash \forall X,(A \Rightarrow(B \Rightarrow X)) \Rightarrow X$
+à partir des séquents $\Gamma \vdash A$ et $\Gamma \vdash B$: 
+$$
+\begin{prooftree}[center = false, separation = 0.1em]
+\infer0[(\textit{hyp})]{\Gamma, A \Rightarrow(B \Rightarrow X) \vdash A \Rightarrow(B \Rightarrow X)}
+\hypo{\Gamma \vdash A}
+\infer1[(\textit{aff})]{\Gamma, A \Rightarrow(B \Rightarrow X) \vdash A}
+\infer2[$(\Rightarrow\mathcal{E})$]{\Gamma, A \Rightarrow(B \Rightarrow X) \vdash B \Rightarrow X}
+\hypo{\Gamma \vdash B}
+\infer1[(\textit{aff})]{\Gamma, A \Rightarrow(B \Rightarrow X) \vdash B}
+\infer2[$(\Rightarrow\mathcal{E})$]{\Gamma, A \Rightarrow(B \Rightarrow X) \vdash X}
+\infer1[$(\Rightarrow\mathcal{E})$]{\Gamma \vdash A \Rightarrow(B \Rightarrow X) \Rightarrow X}
+\infer1[$(\forall^2 \mathcal{I})$]{\Gamma \vdash \forall X, A \Rightarrow(B \Rightarrow X) \Rightarrow X}
+\end{prooftree}
+$$
+On a donc bien le même comportement qu'avec un $\land$.\\
+
+Dans la section qui suit, nous allons construire le système $F$, qui
+est une théorie des types d'ordre supérieur. Ce système a des liens
+profonds avec la déduction naturelle.
+
+\clearpage
+
+\section{Système $F$ et isomorphisme de Curry-Howard}
+\label{SF et CH}
+
+\subsection{Théories des types : principes}
+
+En théorie des ensembles, les fonctions et les entiers sont des ensembles. La formule "$1_\mathbb{N}\in \textrm{sin}$'' est une formule qu'on a le droit d'écrire car le "$1$'' des entiers naturels et la fonction \textrm{sin} sont des ensembles. Cela est un peu déroutant d'un point de vue intuitif car on "sent'' bien que ce sont des entités de nature différente.\\
+
+Dans les théories des types, chaque objet est associé à un type. Les types jouent en quelque sorte le même rôle que les ensembles. $A : \mathit{Type}$ est la notation pour dire que $A$ est un type. $a:A$ est la notation pour dire que $a$ est de type $A$. L'équivalent en théorie des ensembles est de dire que $a \in A$. On dit que $a$ est un terme de type $A$. Si $A: \mathit{Type}$ et $B: \mathit{Type}$ alors $A \to B : \mathit{Type}$. C'est encore une fois purement syntaxique mais l'intuition est que cela correspond au type des fonctions de $A$ vers $B$.\\
+
+Si $\textit{int}$ est le type des entiers naturels et $\textit{real}$ le types des réels, les objets $1 : \textit{int}$ et $\textrm{sin} : \textit{real} \to \textit{real}$ sont des objets de nature vraiment différente (ce qui est intuitif), contrairement à ce qu'il se passe en théorie des ensembles.\\
+
+Une théorie des types est constituée de règles d'inférence qui définissent comment sont construits les types, les termes et le typage des termes (c'est-à-dire l'association d'un terme à un type).
+
+\subsection{Système $F$ : définition}
+
+\begin{defi}[Règles du système $F$ : types]
+\label{RSFTY}
+On se donne un ensemble de symboles $\mathcal{V} := {X, Y, Z, \dots}$ que l'on appelle "variables de types". On se donne aussi les symboles $\to$ et $\Pi$. On définit l'ensemble des types par le système d'inférence suivant :
+$$
+\begin{prooftree}[center = false]
+\hypo{X \in \mathcal{V}}
+\infer1{X \in \mathit{Type}}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center = false]
+\hypo{U\in \mathit{Type}\quad V\in \mathit{Type}}
+\infer1{(U \to V) \in \mathit{Type}}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center = false]
+\hypo{V \in \mathit{Type}\quad X \in \mathcal{V}}
+\infer1{\Pi X.V \in \mathit{Type}}
+\end{prooftree}
+$$
+\end{defi}
+
+Dans la suite, on notera $T : \mathit{Type}$ pour
+$T \in \mathit{Type}$.
+
+\begin{defi}[Environnement de typage]
+On se donne un ensemble de symboles $\mathcal{U} := {x, y, z, ...}$ (infini dénombrable) qu'on appelle des variables.\\
+Un environnement de typage est une fonction partielle de $\mathcal{U}$ vers les types, de domaine fini. Se donner un environnement de typage revient à assigner un type à un nombre fini de variables. Soit $x\in \mathcal{U}$, $T: \mathit{Type}$ et $\Gamma$ un environnement de typage tel que $x \not \in \mathcal{D}_\Gamma$, on note $\Gamma, x:T$ la fonction
+$$
+\Gamma, x:T (x) = T \quad \text{et si $y \neq x$ et $y \in \mathcal{D}_\Gamma$ alors } \Gamma, x:T (y) = \Gamma(y)
+$$
+qui est aussi un environnement de typage.
+\end{defi}
+
+\paragraph{Remarque}
+
+Si $\Gamma$ est un environnement de typage et que la notation $\Gamma, x:T$ est utilisée, alors on a implicitement supposé que $x \not \in \mathcal{D}_\Gamma$.
+
+\begin{defi}[Règles du système $F$ : termes]
+\label{RSFT}
+Pour chaque terme $t$ du système $F$, il existe un environnement $\Gamma$ et un type $U$ tels qu'on associe au couple $(\Gamma, t)$ le type $U$. On note $\Gamma \vdash t : U$. Les règles de formation des termes ainsi que les règles de typage des termes sont :
+$$
+\begin{prooftree}[center = false]
+\hypo{x \in \mathcal{D}_\Gamma \quad \Gamma(x) = T}
+\infer1[(0)]{\Gamma \vdash x:T}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center = false]
+\hypo{\Gamma \vdash t: U \to V \quad \Gamma \vdash u: U}
+\infer1[(1)]{\Gamma \vdash tu : V}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center = false]
+\hypo{\Gamma, x:U \vdash v: V}
+\infer1[(2)]{\Gamma \vdash \lambda x^U.v : U \to V}
+\end{prooftree}
+$$
+$$
+\begin{prooftree}[center = false]
+\hypo{\Gamma \vdash v: V \quad X \in \mathcal{V}}
+\infer1[(3)]{\Gamma \vdash \Lambda X.v : \Pi X.V}
+\end{prooftree}
+$$
+Pour (3), il faut que $X$ ne soit pas libre dans $\Gamma(z)$ pour tout $z \in \mathcal{D}_\Gamma$.
+$$
+\begin{prooftree}[center = false]
+\hypo{\Gamma \vdash t: \Pi X.V \quad U: \mathit{Type}}
+\infer1[(4)]{\Gamma \vdash t U : V[U/X]}
+\end{prooftree}
+$$
+On se donne aussi la $\beta$-réduction pour les abstractions et pour les termes de la forme $\Lambda X.v$. Si $t$ et $u$ sont deux termes tels que $t \mathbin{\beta} u$, on note $t \leadsto u$.
+\end{defi}
+
+\paragraph{Explication intuitive}
+\begin{enumerate}
+\setlength\itemsep{ -1.5 em}
+\item Les termes du système $F$ sont des $\lambda$-termes (avec le symbole $\Lambda$ en plus) auxquels on associe un type qui dépend de l'environnement de typage.\\
+\item Le type $\Pi X.V$ correspond à une quantification : $\forall X, V$ sur tous les types, ce qui en fait un système d'ordre supérieur.\\
+\item Un terme de la forme $\Lambda X.v$ correspond aussi à une fonction qui prend un type en argument et renvoie un terme dont le type dépend de l'argument. Autrement dit, $v$ est paramétré par un type quelconque.
+\end{enumerate}
+
+\paragraph{Remarques} 
+\begin{enumerate}
+\setlength\itemsep{ -1.5 em}
+\item On garde la même convention de parenthésage que dans la section sur le $\lambda$-calcul (cf \ref{conv parent}).\\
+\item Soit $t$ un terme (du système $F$), la notion de variable libre est la même que dans le $\lambda$-calcul, mise à part la distinction entre les variables et les variables de types.\\
+\item On peut étendre l'$\alpha$-équivalence aux termes du système $F$, en distinguant variables et variables de types. Cela permet de définir la $\beta$-réduction sur les termes du système $F$. Tout comme pour le $\lambda$-calcul, c'est à cause de ces notions qu'il faut un ensemble infini de variables (cf \ref{alpha-equivalence}).\\
+\item Le type d'un terme dépend entièrement de l'environnement. Plus précisément, il ne dépend que du type des variables libres qu'il contient. Si $\Gamma$ et $\Delta$ sont deux environnement de typage, $\mathcal{D}_\Gamma \subset  \mathcal{D}_\Delta$,  $\forall x \in \mathcal{D}_\Gamma, \Gamma(x) = \Delta(x)$ et si $\Gamma \vdash t : U$, alors $\Delta \vdash t : U$.\\
+\item  La règle $(4)$ est circulaire. En effet, si $t : \Pi X.U$, alors $t ( \Pi X.U)$ est un terme de type $U[(\Pi X.U) /X]$. Tout comme pour la déduction naturelle de second ordre, ici, cela ne pose pas de problème. 
+\end{enumerate}
+
+\paragraph{Exemples}
+
+Dans cette série d'exemples $U: \mathit{Type}, V : \mathit{Type}$ et on se place implicitement dans un environnement où $u : U$ et $v: V$.
+
+\begin{itemize}
+\setlength\itemsep{ -1.5 em}
+\item $ (\lambda x^U. v) u \leadsto  v[u/x]$\\
+\item $(\lambda x^U. x) u \leadsto x[u/x] = u$\\
+\item $(\Lambda X. v) U \leadsto v[U/X]$\\
+\item $(\Lambda X. \lambda y^X. y) U \leadsto  \lambda y^U. y$\\
+\item $(\Lambda Y. \Lambda X. \lambda x^{X \to Y}. y) U V \leadsto ( \Lambda X. \lambda x^{X \to U}. y) V \leadsto   \lambda x^{V \to U}. y$
+\end{itemize}
+
+\paragraph{Remarque}
+
+Si $\Gamma \vdash t : U$ et $t \leadsto t'$, alors $\Gamma \vdash t' : U$. Cette propriété est appelée la subject-reduction.
+
+\subsection{Modélisation dans le système $F$}
+
+Le système $F$ nous permet de représenter les entiers, une notion de type produit, les booléens et d'autres structures. On va présenter la construction du type produit et des entiers.
+
+\begin{defi}[Type produit]
+Soit $U: \mathit{Type}$ et $V : \mathit{Type}$, on note :
+$$U \times V := \Pi X. ( U \to V \to X) \to X$$
+Soit $u : U$ et $v:V$, on note :
+$$ \langle u,v \rangle := \Lambda X. \lambda x^{U \to V \to X}. x uv$$
+Soit $t: U \times V$, on définit alors les projections :
+$$ \pi^1 t := t U (\lambda x^U. \lambda y^V.x) \quad \quad \pi^2 t := t V (\lambda x^U. \lambda y^V.y)$$
+\end{defi}
+
+\begin{prop}[Construction d'un terme de type produit] Soit un environnement $\Gamma$ où $u: U$ et $v:V$. On peut toujours construire le terme $\langle u,v \rangle : U \times V$.
+\end{prop}
+
+\begin{demo} Soit $\Gamma$ un environnement tel que $\Gamma \vdash u : U, \ \Gamma \vdash v : V$. Quitte à renommer les variables, on suppose que $x$ n'apparaît ni dans $u$ ni dans $v$ et que $X \in \mathcal{V}$ n'est pas libre dans $U$ et $V$. On note $\Gamma' := \Gamma, x : U \to V \to X$ 
+$$
+\begin{prooftree}[center = false]
+\infer0[(0)]{\Gamma' \vdash x: U \to V \to X}
+\hypo{\Gamma' \vdash u : U}
+\infer2[(1)]{\Gamma' \vdash xu : V \to X}
+\hypo{\Gamma' \vdash v : V}
+\infer2[(1)]{ \Gamma' \vdash xuv : X}
+\infer1[(2)]{ \Gamma \vdash \lambda x^{U \to V \to X} . xuv : (U \to V \to X) \to X}
+\hypo{ X \in \mathcal{V}}
+\infer2[(3)]{ \Gamma \vdash \Lambda X . \lambda x^{U \to V \to X} . xuv : \Pi X . (U \to V \to X) \to X}
+\end{prooftree}
+$$
+\end{demo}
+
+On peut donc toujours construire un terme de type $U \times V$.
+
+\begin{prop}[Propriété du type produit]
+\label{prop produit}
+Si $t := \langle u, v \rangle$ alors $$\pi^1 t \leadsto u  \text{ et } \pi^2 t \leadsto v$$
+\end{prop}
+
+\begin{demo} Soit un environnement dans lequel $u: U$
+et $v:V$: \begin{align*}
+\pi^1 \langle u, v \rangle &= (\Lambda X. \lambda x_1^{U \to V \to X}.x_1 uv) \ U \ (\lambda x_2^U. \lambda y^V . x_2)\\
+&\leadsto (\lambda x_1^{U \to V \to U}.x_1 uv) (\lambda x_2^U. \lambda y^V . x_2)\\
+&\leadsto (\lambda x_2^U. \lambda y^V . x_2) uv\\
+& \leadsto (\lambda y^V . u) v\\
+& \leadsto u
+\end{align*}
+
+\begin{align*}
+\pi^2 \langle u, v \rangle &= (\Lambda X. \lambda x_1^{U \to V \to X}.x_1 uv) \ V \ (\lambda x_2^U. \lambda y^V . y)\\
+&\leadsto (\lambda x_1^{U \to V \to V}.x_1 uv) (\lambda x_2^U. \lambda y^V . y)\\
+&\leadsto (\lambda x_2^U. \lambda y^V . y) uv\\
+& \leadsto (\lambda y^V . y) v\\
+& \leadsto v
+\end{align*} \end{demo}
+
+La propriété \ref{prop produit} montre bien que le type produit se comporte comme un produit cartésien.
+
+\begin{defi}[Type des entiers]
+On définit le type
+$$\mathrm{Int} := \Pi X. X \to (X \to X) \to X$$
+On pose :
+$$ 0 := \Lambda X. \lambda x^X. \lambda y^{X \to X}. x$$
+0 est bien de type $\mathrm{Int}$. Si $t : \mathrm{Int}$, on définit
+$$ S \ t := \Lambda X. \lambda x^X. \lambda y^{X \to X}. y ( t\  X \ x \ y)$$
+\end{defi}
+
+Le lecteur devinera que le terme 0 représente le 0 des entiers et $S$ la fonction successeur. Pour comprendre l'intuition derrière cette définition, nous allons voir quelques exemples. Soit $U : \mathit{Type}$, $f: U \to U$ et $u : U$.
+
+\begin{align*}
+0 \ U \ u \ f &:= (\Lambda X. \lambda x^X. \lambda y^{X \to X}. x) \ U \ u \ f\\
+& \leadsto (\lambda x^U. \lambda y^{U \to U}. x)  \ u \ f \\
+& \leadsto ( \lambda y^{U \to U}. u) \ f \\
+& \leadsto u
+\end{align*}
+
+Maintenant, regardons ce qu'il se passe pour le terme $1 := S \ 0$ :
+
+\begin{align*}
+S \ 0 &:= \Lambda X. \lambda x^X. \lambda y^{X \to X}. y  ( (\Lambda X. \lambda x^X. \lambda y^{X \to X}. x)\  X \ x \ y)\\
+& \leadsto \Lambda X. \lambda x^X. \lambda y^{X \to X}. y  ( (\lambda x^X. \lambda y^{X \to X}. x) \ x \ y)\\
+& \leadsto \Lambda X. \lambda x^X. \lambda y^{X \to X}. y ( (\lambda y^{X \to X}. x )\ y)\\
+& \leadsto \Lambda X. \lambda x^X. \lambda y^{X \to X}. y x 
+\end{align*}
+
+\begin{align*}
+1 \ U \ u \ f & \leadsto (\Lambda X. \lambda x^X. \lambda y^{X \to X}. y x) \ U \ u \ f\\
+& \leadsto  (\lambda x^U. \lambda y^{U \to U}. y x) \ u \ f \\
+& \leadsto (\lambda y^{U \to U}. y^{U \to U} u) \ f \\
+& \leadsto f \ u
+\end{align*}
+
+De la même manière : 
+\begin{align*}
+2 \ U \ u \ f  &\leadsto f \ f \ u \\
+3 \ U \ u \ f &\leadsto f \ f \ f \ u \\
+4 \ U \ u \ f &\leadsto f \ f \ f \ f \ u 
+\end{align*}
+
+Ainsi, le lecteur se convaincra aisément qu'un entier $n$ est une fonction qui prend un argument un type: $U : \mathit{Type}$, un terme de ce type $u : U$ et une fonction de ce type vers lui-même $f: U \to U$ et renvoie $f^n (u)$ (avec $f^0 = \mathrm{id}$). On appelle ces entiers les entiers de Church.
+
+\subsection{Isomorphisme de Curry-Howard et cohérence}
+
+L'isomorphisme de Curry-Howard, tout d'abord, n'est pas un isomorphisme. Il s'agit d'une correspondance entre des règles de déduction (dans notre cas la déduction naturelle au second ordre) et des $\lambda$-termes typés (dans notre cas les termes du système $F$).\\ 
+En effet, on établit les correspondances suivantes (cf \ref{regle DN2},\ref{RSFT} et \ref{RSFTY}) :\\
+
+On remarque déjà que les types du système $F$ sont construits de la même façon que les formules de $\mathcal{F_P}^2$. Ainsi, on peut tout à fait faire correspondre une formule à un type. Maintenant, pour ce qui est de la correspondance entre les règles de déduction naturelle et les termes, on fait correspondre 
+$$
+\begin{prooftree}[center = false]
+\infer0[(\textit{hyp})]{\Gamma, A \vdash A}
+\end{prooftree} \quad \text{avec}  \quad \quad \begin{prooftree}[center = false]
+\hypo{x \in \mathcal{D}_\Gamma \quad \Gamma(x) = T}
+\infer1[(0)]{\Gamma \vdash x:T}
+\end{prooftree}
+$$
+Avoir une formule $A$ comme hypothèse correspond à se donner une variable de type $A$. 
+$$ 
+\begin{prooftree}[center = false]
+\hypo{\Gamma, A \vdash B}
+\infer1[$(\Rightarrow\mathcal{I})$]{\Gamma \vdash A \Rightarrow B}
+\end{prooftree} \quad \text{avec}  \quad \quad \begin{prooftree}[center = false]
+\hypo{\Gamma, x:U \vdash v: V}
+\infer1[(2)]{\Gamma \vdash \lambda x^U.v : U \to V}
+\end{prooftree}
+$$ 
+Une preuve d'une implication $A \Rightarrow B$ correspond à un terme de type $A \to B$ (une fonction des preuves de $A$ vers les preuves de $B$). 
+$$
+\begin{prooftree}[center = false]
+\hypo{\Gamma \vdash A \Rightarrow B \quad \Gamma \vdash A}
+\infer1[$(\Rightarrow\mathcal{E})$]{\Gamma \vdash B}
+\end{prooftree} \quad \text{avec}  \quad \quad \begin{prooftree}[center = false]
+\hypo{\Gamma \vdash t: U \to V \quad \Gamma \vdash u: U}
+\infer1[(1)]{\Gamma \vdash tu : V}
+\end{prooftree}
+$$ 
+La règle $(\Rightarrow\mathcal{E})$ correspond à "l'évaluation'' d'une fonction de $A \to B$ en un élément de $A$.
+$$
+\begin{prooftree}[center = false]
+\hypo{\Gamma \vdash A}
+\infer1[$(\forall^2 \mathcal{I})$]{\Gamma \vdash \forall X.A}
+\end{prooftree} \quad \text{avec}  \quad \quad \begin{prooftree}[center = false]
+\hypo{\Gamma \vdash v: V \quad X \in \mathcal{V}}
+\infer1[(3)]{\Gamma \vdash \Lambda X.v : \Pi X.V}
+\end{prooftree}
+$$ 
+Et enfin 
+$$
+\begin{prooftree}[center = false]
+\hypo{\Gamma \vdash \forall X.A}
+\infer1[$(\forall^2 \mathcal{E})$]{\Gamma \vdash A[B/X]}
+\end{prooftree} \quad \text{avec}  \quad \quad \begin{prooftree}[center = false]
+\hypo{\Gamma \vdash t: \Pi X.V \quad U: \mathit{Type}}
+\infer1[(4)]{\Gamma \vdash t U : V[U/X]}
+\end{prooftree}
+$$ 
+Si $A$ est une formule et $\Gamma$ des hypothèses, prouver le séquent $\Gamma \vdash A$ revient à expliciter un terme de type $A$ dans l'environnement $\Gamma$. S'il n'existe pas de tel terme, alors il n'existe pas de preuve du séquent et réciproquement. Un terme de type $A$ peut être vu comme une preuve de $A$. Ainsi, même si nous sommes amenés à manipuler plusieurs termes de type $A$, au final, cela revient au même puisque ce sont tous des preuves de $A$.
+
+\paragraph{Exemple}
+
+$$
+\begin{prooftree}[center = false]
+\infer0[(\textit{hyp})]{A, B \vdash A}
+\infer1[ ($\Rightarrow\mathcal{I}$)]{A \vdash B \Rightarrow A}
+\infer1[($\Rightarrow\mathcal{I}$)]{\vdash A \Rightarrow( B \Rightarrow A)}
+\end{prooftree}
+$$ 
+Cet arbre correspond au terme $\lambda x^A. \lambda y^B. x$. Ce terme peut être pensé comme une fonction qui prend une preuve de $A$ et une preuve de $B$ et renvoie une preuve de $A$.
+
+\begin{defi}[Coupure]
+Une coupure dans un arbre de dérivation est la succession d'une règle d'introduction suivie d'une règle d'élimination du même type.
+\end{defi}
+
+\paragraph{Exemples}
+
+$$
+\begin{prooftree}[center = false]
+\hypo{}
+\ellipsis{}{\Gamma, A \vdash B}
+\infer1[($\Rightarrow\mathcal{I}$)]{\Gamma \vdash A \Rightarrow B}
+\hypo{}
+\ellipsis{}{\Gamma \vdash A}
+\infer2[($\Rightarrow\mathcal{E}$)]{\Gamma \vdash B}
+\end{prooftree}
+\qquad 
+\begin{prooftree}[center = false]
+\hypo{}
+\ellipsis{}{\Gamma \vdash A}
+\infer1[($\forall^2 \mathcal{I}$)]{\Gamma \vdash \forall X. A}
+\infer1[($\forall^2 \mathcal{E}$)]{\Gamma \vdash A[B/X]}
+\end{prooftree}
+$$
+
+\begin{theo}
+Le système $F$ est fortement normalisable (cf \ref{normalisation forte}).
+\end{theo}
+
+\begin{theo}
+Le système $F$ a la PCR (cf \ref{PCR}).
+\end{theo}
+
+Les preuves des deux théorèmes ci-dessus étant très techniques, on va les admettre.\\
+
+Puisqu'on peut faire correspondre un $\lambda$-terme à un arbre, cela entraîne qu'on a une notion de réduction pour les arbres. Les deux théorèmes précédents garantissent que tout arbre est (fortement) normalisable et que la forme normale est unique.
+
+\begin{theo}[Élimination des coupures]
+Tout arbre de dérivation en déduction naturelle du second ordre se réduit en un arbre sans coupures. De manière équivalente, un arbre en forme normale n'a pas de coupures.
+\end{theo}
+
+En effet, les coupures correspondent à des redex. L'arbre étant en forme normale, il ne contient plus de redex. De manière plus détaillée:
+
+\begin{itemize}
+\setlength\itemsep{ -1.5 em}
+\item si on a une coupure en $(\Rightarrow)$, comme dans l'exemple, réduire cet arbre en forme normale revient à éliminer toutes les utilisations de l'hypothèse $\Gamma, A$ en utilisant le séquent $\Gamma \vdash A$\\
+\item si on a une coupure en $(\forall^2)$, comme dans l'exemple, réduire cet arbre en forme normale revient à substituer dans toute la preuve $X$ par $B$
+\end{itemize}
+
+\begin{theo}
+Soit $A$ une formule, la dernière règle d'une preuve en forme normale de $\vdash A$ est une règle d'introduction.
+\end{theo}
+
+\begin{demo} Puisque les hypothèses sont vides, on ne peut pas déduire $\vdash A$ avec la règle \textit{(hyp)}. La dernière règle n'est donc pas (\textit{hyp}). \\ 
+\\
+Supposons que la dernière règle est une règle d'élimination, l'arbre est donc de la forme: 
+$$
+\begin{prooftree}[center = false]
+\hypo{}
+\ellipsis{}{ \vdash B \Rightarrow A}
+\hypo{}
+\ellipsis{}{ \vdash B}
+\infer2[$(\Rightarrow\mathcal{E})$]{\vdash A}
+\end{prooftree} \quad \text{ou} \quad \begin{prooftree}[center = false]
+\hypo{}
+\ellipsis{}{ \vdash \forall X.B}
+\infer1[$(\forall^2 \mathcal{E})$]{\vdash A}
+\end{prooftree}
+$$ 
+avec $B$ une certaine formule.\\
+\\
+Les hypothèses étant vides, l'arbre doit contenir au moins une règle d'introduction. En effet, les règles d'introduction sont les seules qui permettent de réduire le nombre d'hypothèses et l'arbre ne peut pas commencer qu'avec des hypothèses non vides.\\
+\\
+On remarque que si $(\Rightarrow\mathcal{I})$ est suivie par une règle
+d'élimination, alors c'est nécessairement la règle
+$(\Rightarrow\mathcal{E})$. En effet, $(\Rightarrow\mathcal{I})$
+introduit le symbole "$\Rightarrow$''. Le symbole $\forall$ ne peut
+donc pas être en tête de la formule. De même, si
+$(\forall^2 \mathcal{I})$ est suivie par une règle d'élimination,
+alors c'est nécessairement la règle
+$(\forall^2 \mathcal{E})$.\\
+\\
+On sait donc qu'il y a au moins une règle d'introduction dans notre arbre qui est suivie par au moins une règle d'élimination (hypothèse). Donc, d'après ce qui vient d'être dit, il y a nécessairement une coupure. Cela contredit l'hypothèse que l'arbre est en forme normale. Donc la dernière règle ne peut pas être une règle d'élimination.
+\end{demo}
+
+\begin{defi}[Cohérence]
+Un système est dit cohérent (ou consistant) s'il existe une formule qui ne peut pas être prouvée.
+\end{defi}
+
+Cette définition peut paraître troublante mais en fait elle ne l'est pas. Un système dans lequel tout est prouvable n'est pas intéressant puisqu'on peut prouver à la fois $A$ et $\neg A$.
+
+\begin{prop}
+La déduction naturelle du second ordre est cohérentesi et seulement si le séquent $ \vdash \forall X.X$ n'est pas prouvable.
+\end{prop}
+
+\begin{demo} Si $\vdash \forall X.X$ n'est pas prouvable, alors le système est cohérent par définition.\\
+Si $ \vdash \forall X.X$ est prouvable, alors pour toute formule $A$ et toutes hypothèses $\Gamma$: 
+$$
+\begin{prooftree}[center = false]
+\hypo{ \vdash \forall X.X}
+\infer1[$(\forall^2 \mathcal{E})$]{\vdash A}
+\infer1[\textit{(aff)}]{\Gamma \vdash A}
+\end{prooftree}
+$$ 
+et donc tout séquent est prouvable.
+\end{demo}
+
+\begin{theo}
+La déduction naturelle du second ordre est cohérente.
+\end{theo}
+
+\begin{demo} Supposons qu'on puisse démontrer $\vdash \forall X.X$. Cela signifie qu'il existe un arbre de dérivation en forme normale qui se termine par le séquent $\vdash \forall X.X$. La dernière règle est donc une règle d'introduction. Cela ne peut évidement pas être la règle $(\Rightarrow\mathcal{I})$. L'arbre est donc de la forme: 
+$$
+\begin{prooftree}[center = false]
+\hypo{}
+\ellipsis{}{\vdash X}
+\infer1[$(\forall^2 \mathcal{I})$]{ \vdash \forall X.X}
+\end{prooftree}
+$$ 
+Par le même raisonnement, la règle avant $\vdash X$ est aussi une règle d'introduction, ce qui n'est pas possible car $X$ est une variable. Contradiction, donc on ne peut pas démontrer le séquent $\vdash \forall X.X$. On a donc bien la cohérence.
+\end{demo}
+
+\paragraph{Remarque}
+
+On vient de raisonner sur la déduction naturelle du second ordre depuis la théorie des ensembles. En effet, on ne peut pas exprimer la preuve de la cohérence de la déduction naturelle dans la déduction naturelle. De manière générale, sous certaines hypothèses, si un système est cohérent alors il ne peut pas exprimer la preuve de sa cohérence: c'est le théorème d'incomplétude de Gödel.
+
+\clearpage
+
+\section{Paradoxe de Girard}
+\label{paradoxe de girard}
+
+Le paradoxe de Girard est l'équivalent du paradoxe de Russell en théorie des types. On va construire une théorie des types et montrer qu'elle est incohérente. En plus de systèmes d'inférence pour définir les types et les termes, on va se donner un système de déduction qui permet de définir si un terme de type $\mathit{Prop}$ est prouvable.
+
+\subsection{Calcul intuitionniste de Church}
+
+\begin{defi}[Calcul intuitionniste de Church: types]
+$$
+\begin{prooftree}[center = false]
+\infer0{\mathit{Prop}: \mathit{Type}}
+\end{prooftree}
+\qquad 
+\begin{prooftree}[center = false]
+\hypo{A: \mathit{Type}\quad B : \mathit{Type}}
+\infer1{A \to B : \mathit{Type}}
+\end{prooftree}
+$$
+\end{defi}
+
+$\mathit{Prop}$ (comme son nom l'indique) est le type des propositions. Intuitivement, on peut penser un terme de type $A \to \mathit{Prop}$ comme une fonction qui va de $A$ vers ${ \text{Vrai, Faux}}$. $\mathit{Prop}$ est une constante de type, contrairement au système $F$ où on n'a que des variables de types (cf \ref{RSFTY}). Tous les types sont donc des chaînes finies de "$\mathit{Prop}$'' et de "$\to$''.
+
+\begin{defi}[Calcul intuitionniste de Church: termes]
+On se donne un ensemble de symbole $\mathcal{U}$ infini dénombrable qui est l'ensemble des variables.
+$$
+\begin{prooftree}[center = false]
+\hypo{x \in \mathcal{D}_\gamma \quad \gamma(x) = A}
+\infer1[(0)]{\gamma \vdash x : A}
+\end{prooftree}
+\qquad 
+\begin{prooftree}[center = false]
+\infer0[(1)]{ \ \vdash \Rightarrow: \mathit{Prop}\to (\mathit{Prop}\to \mathit{Prop})}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center = false]
+\hypo{\gamma \vdash t : A \to \mathit{Prop}}
+\infer1[(2)]{\gamma \vdash \forall(t) : \mathit{Prop}}
+\end{prooftree}
+$$
+$$
+\begin{prooftree}[center = false]
+\hypo{\gamma \vdash t : A \to B \quad \gamma \vdash u : A}
+\infer1[(3)]{\gamma \vdash (t u) : B}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center = false]
+\hypo{\gamma , x:A \vdash t : B}
+\infer1[(4)]{\gamma \vdash \lambda x^A.t : A \to B}
+\end{prooftree}
+$$
+On se donne aussi la $\beta$-réduction.
+\end{defi}
+
+Les règles $(0), (3)$ et $(4)$ sont des règles qui ont déjà été abordées. La règle $(1)$ dit simplement que $\Rightarrow$ est une constante, de type $\mathit{Prop}\to (\mathit{Prop}\to \mathit{Prop})$ (son type ne dépend pas de l'environnement). On note $A \Rightarrow B$ au lieu de $\Rightarrow A \ B$. La règle $(4)$ doit être comprise comme un "pour tout'' usuel.
+
+\clearpage
+
+\begin{defi}[Calcul intuitionniste de Church: déduction]
+Une $\gamma$-formule est un terme de type $\mathit{Prop}$ dans un environnement $\gamma$. On définit inductivement l'ensemble des $\gamma$-formules prouvables $\mathfrak{P}$:
+$$
+\begin{prooftree}[center = false]
+\hypo{\gamma \vdash t \in \mathfrak{P} \quad t \leadsto u}
+\infer1{\gamma \vdash u \in \mathfrak{P}}
+\end{prooftree}
+\qquad 
+\begin{prooftree}[center = false]
+\hypo{\gamma \vdash t : \mathit{Prop}\quad \gamma \vdash u : \mathit{Prop}}
+\infer1{\gamma \vdash t \Rightarrow( u \Rightarrow t) \in \mathfrak{P}}
+\end{prooftree}
+$$
+\vspace{0.2em}
+$$
+\begin{prooftree}[center = false]
+\hypo{\gamma \vdash t: \mathit{Prop}\quad \gamma \vdash u: \mathit{Prop}\quad \gamma \vdash v: \mathit{Prop}}
+\infer1{\gamma \vdash (t \Rightarrow( u \Rightarrow v)) \Rightarrow((t \Rightarrow u) \Rightarrow(t \Rightarrow v)) \in \mathfrak{P} }
+\end{prooftree}
+$$
+\vspace{0.2em}
+$$
+\begin{prooftree}[center = false]
+\hypo{\gamma \vdash \varphi : A \to \mathit{Prop}\quad \gamma \vdash \forall (\varphi) \in \mathfrak{P} \quad \gamma \vdash t : A}
+\infer1{ \gamma \vdash (\varphi t) \in \mathfrak{P}}
+\end{prooftree}
+$$
+\vspace{0.2em}
+$$
+\begin{prooftree}[center = false]
+\hypo{\gamma, x: A \vdash \psi \Rightarrow\varphi \in \mathfrak{P} \quad x \text{ n'apparait pas dans } \psi}
+\infer1{ \gamma \vdash \psi \Rightarrow\forall (\lambda x^A.\varphi) \in \mathfrak{P}}
+\end{prooftree}
+$$
+\vspace{0.2em}
+$$
+\begin{prooftree}[center = false]
+\hypo{\gamma \vdash \psi \Rightarrow\varphi \in \mathfrak{P} \quad \gamma \vdash \psi  \in \mathfrak{P}}
+\infer1{ \gamma \vdash \varphi \in \mathfrak{P}}
+\end{prooftree}
+$$
+\end{defi}
+
+Dans ce système, contrairement à la théorie des ensembles, les propositions sont "au même niveau'' que les objets de la théorie: ce sont tous des termes d'un certain type. Bien sûr, le type $\mathit{Prop}$ joue un rôle un peu différent mais cela reste un type comme les autres. Les règles pour les types et les termes permettent de définir les objets que l'on va manipuler et les règles de déduction permettent de prouver des propriétés sur ces objets. Ce système de déduction est le système de Hilbert (à quelques modifications près). Il correspond à la logique usuelle sans tiers exclu ni axiome du choix. On pourrait ajouter la règle 
+$$
+\begin{prooftree}[center = false]
+\hypo{\gamma \vdash  \varphi : \mathit{Prop}}
+\infer1{ \gamma \vdash ((\varphi \Rightarrow\bot) \Rightarrow\bot) \Rightarrow\varphi \in \mathfrak{P}}
+\end{prooftree}
+$$ 
+où $\bot$ est le terme $\forall ( \lambda x^{\mathit{Prop}}.x)$. Se donner cette règle (l'absurde) en plus ne changerait rien à la suite mais on ne va pas l'inclure par souci de généralité.\\ 
+Il est important de garder en tête la première règle de déduction car elle est cruciale.\\
+
+Dans la suite on utilisera les notations:
+
+\begin{itemize}
+\setlength\itemsep{ -1.5 em}
+\item si $\varphi :\mathit{Prop}$ on note $(\forall x:A) \varphi$ pour $\forall (\lambda x^A.\varphi)$\\
+\item si $\varphi : \mathit{Prop}$ on note $(\exists x:A) \varphi$ pour $(\forall \delta : \mathit{Prop})(( \forall x :A ) \varphi \Rightarrow\delta) \Rightarrow\delta)$\\
+\item si $\varphi : \mathit{Prop}$ et $\psi : \mathit{Prop}$ on note $\varphi \land \psi$ pour $(\forall \delta: \mathit{Prop})(\varphi \Rightarrow\psi \Rightarrow\delta) \Rightarrow\delta$\\
+\item si $\varphi : \mathit{Prop}$ et $\psi : \mathit{Prop}$ on note $\varphi \lor \psi$ pour $(\forall \delta : \mathit{Prop})(\varphi \Rightarrow\delta) \Rightarrow(\psi \Rightarrow\delta) \Rightarrow\delta$
+\end{itemize}
+
+Les notations $\forall, \exists, \land$ et $\lor$ se comportent exactement de la même façon que d'ordinaire. Le lecteur pourra se référer aux parties sur la déduction naturelle et le système $F$ (cf \ref{DN1}, \ref{regle DN2}, \ref{RSFT}) pour essayer de s'en convaincre.\\
+
+On remarque qu'on ne s'est pas donné de notion d'égalité entre deux termes de même type. En effet, ce système ne vient pas avec une notion primitive d'égalité. Soit $t, u :A$, on va définir ce qui s'appelle l'égalité intentionnelle:
+$$ t =_A u \text{ est la notation pour } (\forall P : A \to \mathit{Prop}) Pt \Rightarrow Pu$$
+En langage naturel: si $t$ satisfait une propriété $P$, alors $u$ satisfait aussi $P$.\\ 
+
+$=_A$ est évidemment réflexive. Montrons qu'elle est symétrique:\\
+\\ 
+On suppose $t =_A u$. Soit
+$$P_0 := \lambda x^A. (x =_A t) : A \to \mathit{Prop}$$ 
+On a $(\forall P : A \to \mathit{Prop}) Pt \Rightarrow Pu$ donc en particulier pour $P_0$: 
+$$P_0 t \Rightarrow P_0 u$$
+$P_0 t = (\lambda x^A.( x =_A t))t \leadsto t =_A t$. Donc $(P_0 t \Rightarrow P_0 u) \leadsto ((t =_A t) \Rightarrow P_0 u)$. $t =_A t$ est prouvable par hypothèse, donc $P_0 u$ est prouvable.\\
+$P_0 u = (\lambda x^A.( x =_A t))u \leadsto u =_A t$, donc $ u =_A t$ est prouvable.\\ \\ 
+Montrons maintenant qu'elle est transitive:\\ \\ 
+On suppose $t =_A u$ et $u =_A v$. Soit
+$$ P_1 := \lambda x^A. (t =_A x) : A \to \mathit{Prop}$$ 
+On a $(\forall P : A \to \mathit{Prop}) Pu \Rightarrow Pv$ donc en particulier, pour $P_1$: 
+$$P_1u \Rightarrow P_1v$$
+$P_1 u = (\lambda x^A.( t =_A x))u \leadsto t =_A u$. Donc $(P_1 u \Rightarrow P_1 v) \leadsto ((t =_A u) \Rightarrow P_1 v)$. $t =_A u$ est prouvable par hypothèse, donc $P_1 v$ est prouvable.\\
+$P_1 v = (\lambda x^A.( t =_A x))v \leadsto t =_A v$ donc $ t =_A v$ est prouvable, ce qui conclut.
+
+\clearpage
+
+\subsection{Types comme ensembles et relations}
+
+On aimerait bien pouvoir manipuler les types comme des ensembles, cependant ce n'est pas si facile. En effet, les types représentent des propriétés moins fines que les ensembles. Tout d'abord on aimerait, à partir d'un type, pouvoir définir un sous-type. Si $A : \mathit{Type}$, ce qui va jouer le rôle de sous-type est un terme $P : A \to \mathit{Prop}$. L'idée est que si $x:A$ et $P x$ est prouvable, alors "$x \in P$''.\\
+
+On peut aussi définir la notion d'inclusion. Si $P : A \to \mathit{Prop}$ et $Q: A \to \mathit{Prop}$, l'inclusion de $P$ dans $Q$ est le prédicat $\lambda P^{A \to \mathit{Prop}}. \lambda Q^{A \to \mathit{Prop}}. (\forall x:A) (P x) \Rightarrow(Qx)$.\\
+
+Si l'on souhaite munir un type d'une relation binaire, la première solution qui vient en tête est de dire que si $A: \mathit{Type}$, une relation binaire sur $A$ est un terme $R : A \to A \to \mathit{Prop}$. Cette définition est la bonne mais soulève une subtilité. Si $A: \mathit{Type}$, $R : A \to A \to \mathit{Prop}$, $B : \mathit{Type}$ et $S : B \to B \to \mathit{Prop}$, un plongement de $(A,R)$
+\footnote{la notation $(A,R)$ est une méta-notation pour désigner le type A et sa relation binaire R} dans $(B,S)$ est un terme $f : A \to B$ tel que :
+$$ (\forall x:A) (\forall y :A) (R \ x \ y) \Rightarrow( S \ (f x) \ (fy)) \text{ et } (\exists b : B) (\forall x:A) (S \ (fx) \ b)$$
+Cependant, la condition $(\exists b : B) (\forall x:A) (S \ (fx) \ b)$ est en pratique trop forte car $S$ n'est pas nécessairement définie pour tout $b:B$. Pour faire fonctionner cette définition, il faut se restreindre au domaine de $S$.
+
+\begin{defi}[Domaine d'une relation binaire]
+Soit $A: \mathit{Type}$ et $R$ une relation binaire sur $A$, le domaine de $R$ est le prédicat $\lambda x^A.( \exists y:A)( (R \ x \ y) \lor (R \ y \ x))$ noté $\mathcal{D}_R$.
+\end{defi}
+
+\begin{defi}[Morphisme]
+Soit $A,B : \mathit{Type}$ et $R$,$S$ respectivement des relations binaire sur ces types, on dit que $f: A \to B$ est un morphisme de $(A,R)$ vers $(B,S)$ si :
+$$ (\forall x:A) (\forall y :A) (R \ x \ y) \Rightarrow( S \ (f x) \ (fy))$$
+\end{defi}
+
+\begin{defi}[Plongement]
+Soit $A,B : \mathit{Type}$ et $R$,$S$ respectivement des relations binaire sur ces types, on dit que $(A,R)$ se plonge dans $(B,S)$ s'il existe $f : A \to B$ tel que :
+\begin{center}
+$ (\forall x:A) (\forall y :A) (R \ x \ y) \Rightarrow( S \ (f x) \ (fy))$ \\[3mm]
+$ \text{et}$\\[3mm]
+$ (\exists b : B)[(\mathcal{D}_S \  b) \land (\forall x:A) (\mathcal{D}_R \ x) \Rightarrow(S \ (fx) \ b)]$\\[3mm]
+\end{center}
+On dit que $f$ est un plongement de $(A,R)$ vers $(B,S)$.
+\end{defi}
+
+\subsection{Extension au second ordre}
+
+La nécessité d'étendre ce système au second ordre vient du fait qu'il ne capture pas certaines généralités. Par exemple, la notion d'inclusion qu'on a définie :
+$$\lambda P^{A \to \mathit{Prop}}. \lambda Q^{A \to \mathit{Prop}}. (\forall x:A) (P x) \Rightarrow(Qx)$$
+dépend du type $A$. Si on veut parler de l'inclusion dans un autre type, on a alors besoin d'un autre prédicat :
+$$\lambda P^{B \to \mathit{Prop}}. \lambda Q^{B \to \mathit{Prop}}. (\forall x:B) (P x) \Rightarrow(Qx)$$
+On voudrait définir des prédicats indépendamment du type des objets sur lesquels il agit.
+
+\begin{defi}[Extension au second ordre : types]
+On se donne un ensemble $\mathcal{V}$ qui est l'ensemble des variables de type. On rajoute au système précédent les règles :
+$$
+\begin{prooftree}[center = false]
+\hypo{X \in \mathcal{V}}
+\infer1{X : \mathit{Type}}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center = false]
+\hypo{X \in \mathcal{V} \quad A: \mathit{Type}}
+\infer1{(\Pi X) A : \mathit{Type}}
+\end{prooftree}
+$$
+\end{defi}
+
+\begin{defi}[Extension au second ordre : termes]
+On rajoute au système précédent les règles :
+$$
+\begin{prooftree}[center = false]
+\hypo{\gamma \vdash t : A \quad \gamma \text{ ne contient pas } X \text{ libre}}
+\infer1{\gamma \vdash \Lambda X.t : (\Pi X) A}
+\end{prooftree}
+\qquad
+\begin{prooftree}[center = false]
+\hypo{\gamma \vdash t : (\Pi X) A \quad B : \mathit{Type}}
+\infer1{\gamma \vdash (t B) : A[B/X]}
+\end{prooftree}
+$$
+$$
+\begin{prooftree}[center = false]
+\hypo{\gamma \vdash t : (\Pi X) \mathit{Prop}}
+\infer1{\gamma \vdash (\forall t): \mathit{Prop}}
+\end{prooftree}
+$$
+On étend aussi la $\beta$-réduction aux termes de la forme $\Lambda X.t$.
+\end{defi}
+
+\begin{defi}[Extension au second ordre : déduction]
+On étend les règles de déduction existantes pour inclure les nouveaux termes.
+\end{defi}
+
+Encore une fois, ce système est circulaire pour les mêmes raisons que les autres systèmes d'ordre supérieur que l'on a déjà vus. Cette fois, cela va mal se passer. Avant de voir cela, on va utiliser la force du second ordre pour (re)définir plusieurs prédicats.
+
+\begin{defi}[Égalité intentionnelle]
+$=_{\mathit{Le}}$\footnote{Cette égalité est aussi appelée : égalité de Leibniz, d'où la notation} est la notation pour 
+$$\Lambda X. \lambda x^X. \lambda y^X. (\forall P : X \to \mathit{Prop}) (Px) \Rightarrow(Py)$$
+On la note de manière infixe et sans donner l'argument de type, car on peut facilement le déduire du types des termes. Il n'y a donc pas de confusion possible. $=_{\mathit{Le}}$ est de type $(\Pi X) X \to X \to \mathit{Prop}$.
+\end{defi}
+
+\begin{defi}[Transitivité]
+$\mathbf{Tran}$ est la notation pour
+$$\Lambda X. \lambda R^{X \to X \to \mathit{Prop}}.  (\forall x: X)(\forall y: X)(\forall z: X) (R \ x \ y) \land (R \ y \ z) \Rightarrow(R \ x \ z)$$
+$\mathbf{Tran}$ est de type $(\Pi X)( X \to X \to \mathit{Prop}) \to \mathit{Prop}$
+\end{defi}
+
+\begin{defi}[Domaine d'une relation binaire]
+$\mathcal{D}$ est la notation pour
+$$\Lambda X. \lambda R^{X \to X \to \mathit{Prop}}. \lambda x^X.(( \exists y:X) (R \ x \ y) \lor (R \ y \ x))$$
+On note $\mathcal{D}_R \ x$ pour $\mathcal{D}\ X \ R \ x$. Encore une fois, il n'y a pas de confusion possible car on connaît le type de $R$. $\mathcal{D}$ est de type $(\Pi X)(X \to X \to \mathit{Prop}) \to X \to \mathit{Prop}$.
+\end{defi}
+
+\begin{defi}[$\mathbf{EMB}$]
+$\mathbf{EMB}$ est la notation pour\\
+\begin{center}
+$\Lambda A. \lambda R^{A \to A \to \mathit{Prop}}. \Lambda B. \lambda S^{B \to B \to \mathit{Prop}}.(\exists f : A \to B)$ \\[3mm]
+$[(\forall x:A) (\forall y :A) ( (R \ x \ y) \Rightarrow( S \ (f x) \ (fy) ))]$\\[3mm]
+$\land$ \\[3mm]
+$[(\exists b : B)( (\mathcal{D}_S \ b) \land (\forall x:A) (D \mathbin{R} x) \Rightarrow(S \ fx \ b))]$
+\end{center}
+\vspace{4mm}
+$\mathbf{EMB}$ est de type $(\Pi A)(A \to A \to \mathit{Prop}) \to (\Pi B)( B \to B \to \mathit{Prop}) \to \mathit{Prop}$.
+\end{defi}
+
+C'est le prédicat qui correspond à : il existe un plongement de $(A,R)$ dans $(B,S)$.
+
+\begin{defi}[Accessibilité]
+$\mathbf{acc}$ est la notation pour le prédicat d'accessibilité (cf \ref{acces})
+$$ \Lambda A. \lambda R^{A \to A \to \mathit{Prop}}. \lambda x^A.(\forall P : A \to \mathit{Prop})[( (\forall y : A) \ (R \ y \ x) \implies Py) \implies Px)\implies Px]$$
+
+
+On note $\mathbf{acc}_R \ x$ au lieux de $\mathbf{acc}\ A \ R \ x$ pour les mêmes raisons que précédemment. $\mathbf{acc}$ est de type $(\Pi A)( A \to A \to \mathit{Prop}) \to A \to \mathit{Prop}$. 
+\end{defi}
+
+$\mathbf{acc}$ est exactement le même prédicat que vu en \ref{acces} traduit dans cette théorie. La partie $(\forall P : A \to \mathit{Prop})$ permet d'exprimer l'intersection de toutes les relations.
+
+\begin{defi}[Relation bien fondée]
+$\mathbf{WF}$ est la notation pour le prédicat de bonne fondation (cf \ref{BF})
+$$ \Lambda A. \lambda R^{A \to A \to \mathit{Prop}}. (\forall x:A) (\mathbf{acc}_R \ x)$$
+$\mathbf{WF}$ est de type $(\Pi A)( A \to A \to \mathit{Prop}) \to \mathit{Prop}$
+\end{defi}
+
+Les propriétés comme la récurrence bien fondée, qu'on a montrées en $\ref{RBF}$, sont prouvables dans ce système. On les a montrées sans utiliser l'axiome du choix ni le tiers exclu, on s'est donc placé exactement dans les conditions de ce système. Pour prouver ces propriétés, il suffit donc de traduire ces preuves dans le formalisme de ce système.\\
+
+Avant de passer à la suite il nous reste à définir la composition de fonctions. En effet, si $f: A \to B$ et $g : B \to C$ on ne peut pas écrire $(g)f$. Ce n'est pas un terme car $f$ n'est pas de type $B$. Cependant, on peut tout à fait écrire $g(fa)$ avec $a : A$.
+
+\begin{defi}[Composition de fonctions]
+$\circ$ est la notation pour la composition
+$$\Lambda A. \Lambda B. \Lambda C. \lambda f^{A \to B}. \lambda g^{B \to C}.\lambda x^A.(g(fx))$$
+On la note de manière infixe sans donner les arguments de types.\\
+ $\circ$ est de type $(\Pi A)(\Pi B)(\Pi C)(A\to B) \to (B \to C) \to (A \to C)$
+\end{defi}
+
+\subsection{Paradoxe de Girard}
+
+\begin{theo}[Paradoxe de Girard]
+Le calcul de Church intuitionniste étendu au second ordre n'est pas cohérent.
+\end{theo}
+
+Pour le démontrer, on a besoin de plusieurs résultats.
+
+\begin{prop}
+$\mathbf{EMB}$ est une relation transitive.
+\end{prop}
+
+\begin{demo} Soit $A, B, C: \mathit{Type}$,
+$R_A, R_B$ et $R_C $ des relations binaires respectivement sur $A,B$ et $C$. On suppose $(\mathbf{EMB}\ A \ R_A \ B \ R_B )$ et $( \mathbf{EMB}\ B  \ R_B \ C \ R_C )$. On a donc qu'il existe $f : A \to B$ et $g : B \to C$ des plongements. On va montrer que $g {\circ} f$ est un plongement de $(A, R_A)$ vers $(C, R_C)$.\\ 
+\\ 
+Soit $x,y : A$ tel que $(R_A \ x \ y)$, on a donc $(R_B \ (f x) \ (f y))$ et donc $(R_C \ (g {\circ} f \ x) \ (g {\circ} f \ y))$. On a aussi qu'il existe $c:C$ tel que $(\mathcal{D}_{R_C} \ c) \land (\forall y : B) (\mathcal{D}_{R_B} \ y) \Rightarrow(R_C \ (gy) \ c)$. Or $(\forall x : A) (\mathcal{D}_{R_A} \ x) \Rightarrow(\mathcal{D}_{R_B} (fx))$. Donc $(\forall x : A) (\mathcal{D}_{R_A} \ x) \Rightarrow(R_C \ (g {\circ} f \ x) \ c)$
+\end{demo}
+
+\begin{defi}[Système universel de notation]
+Soit $A_0 : \mathit{Type}$, $A_0$ est un système de notation universel s'il existe un terme $i_0 : (\Pi X)(X \to X \to \mathit{Prop}) \to A_0$ tel que, si $(i_0 \ A \ R) =_{\mathit{Le}}(i_0 \ B \ S)$, alors il existe un morphisme de $(A,R)$ vers $(B,S)$.
+\end{defi}
+
+L'idée est que tous les types munis d'une relation binaire (qui satisfait certaines propriétés) se plongent dans $A_0$. Ainsi, si on munit $A_0$ d'une relation binaire (qui satisfait ces propriétés), alors $A_0$ va se plonger dans $A_0$. Cela crée un paradoxe. On aura donc montré que, s'il existe un système de notation universel, alors le système est incohérent. On construira ensuite un tel système dans le calcul de Church intuitionniste étendu au second ordre.\\
+
+On suppose qu'il existe un tel $A_0$ et $i_0$.
+
+\begin{defi}[$\mathbf{emb}$] On définit la relation binaire $\mathbf{emb}$ par:
+\begin{center}
+$\mathbf{emb}:= \lambda x^{A_0}. \lambda y^{A_0}.(\exists A : \mathit{Type})(\exists R : A \to A \to \mathit{Prop})(\exists B : \mathit{Type})(\exists S : B \to B \to \mathit{Prop})$\\[3mm]
+$( x =_{\mathit{Le}}(i_0 \ A \ R) \land y =_{\mathit{Le}}(i_0 \ B \ S) \land (\mathbf{EMB}\ A \ R \ B \ S))$
+\end{center}
+$\mathbf{emb}$ est une relation binaire sur $A_0$ (ie  $\mathbf{emb}: A_0 \to A_0 \to \mathit{Prop}$)
+\end{defi}
+
+En language courant : si $x, y: A_0$ alors $\mathbf{emb}\ x \ y$ si $x$ et $y$ sont l'image par $i_0$ de deux types munis chacun d'une relation binaire tel que le premier se plonge dans le deuxième.
+
+\begin{prop}
+$\mathbf{emb}$ est transitive.
+\end{prop}
+
+\begin{demo} Soit $x,y,z : A_0$ tels que $(\mathbf{emb}\ x \ y)$ et $(\mathbf{emb}\ y \ z)$. Par définition de $\mathbf{emb}$, on a donc qu'il existe les types et relations binaires tels que:
+
+\begin{itemize}
+\setlength\itemsep{ -1.5 em}
+\item $x = (i_0 \ A_x \ R_x)$\\
+\item $y = (i_0 \ A^1_y \ R^1_y)$ et $ y = (i_0 \ A^2_y \ R^2_y)$\\
+\item $z = (i_0 \ A_z \ R_z)$\\
+\item $ \mathbf{EMB}\ A_x \ R_x \ A^1_y \ R^1_y$\\
+\item $ \mathbf{EMB}\ A^2_y \ R^2_y \ A_z \ R_z$
+\end{itemize}
+
+On a donc $ (i_0 ~A^1_y ~R^1_y)  (i_0 ~A^2_y ~R^2_y)$, donc il existe un morphisme $f$ de $(A^1_y, R^1_y)$ vers $(A^2_y, R^2_y)$. On a qu'il existe un plongement $g$ de $(A^2_y, R^2_y)$ dans $(A_z, R_z)$. $g {\circ} f$ est un plongement de $(A^1_y, R^1_y)$ vers $(A_z, R_z)$. De plus, on a un plongement $h$ de $(A_x \ R_x)$ dans $(A^1_y, R^1_y)$. $(g {\circ} f ) {\circ} h$ est un plongement de $(A_x \ R_x)$ dans $(A_z, R_z)$. Donc on a bien $\mathbf{emb}\ x \ z$.
+\end{demo}
+
+\begin{defi}[$\mathbf{wf}$] On définit le prédicat $\mathbf{wf}$ par :
+$$ \mathbf{wf}:= \lambda x^{A_0}. (\exists A : \mathit{Type})(\exists R : A \to A \to \mathit{Prop}) [(\mathbf{WF}\ A \ R) \land  x =_{\mathit{Le}}(i_0 \ A \ R)]$$
+$\mathbf{wf}$ est de type $A_0 \to \mathit{Prop}$.
+\end{defi}
+
+\begin{defi}[$\mathbf{{emb}_{wf}}$] On définit la relation binaire $\mathbf{{emb}_{wf}}$ par :
+$$\mathbf{{emb}_{wf}}:= \lambda x^{A_0}.\lambda y^{A_0}. (\mathbf{emb}\ x \ y) \land (\mathbf{wf}\ x) \land (\mathbf{wf}\ y)$$
+$\mathbf{{emb}_{wf}}$ est une relation binaire sur $A_0$.
+\end{defi}
+
+\begin{prop}
+$\mathbf{{emb}_{wf}}$ est transitive.
+\end{prop}
+
+\begin{demo} C'est une conséquence directe de la
+transitivité de $\mathbf{emb}$ 
+\end{demo}
+
+\begin{theo}
+\label{wfA0}
+On a $\mathbf{WF}\ A_0 \ \mathbf{{emb}_{wf}}$.
+\end{theo}
+
+\begin{demo} Soit $S: \mathit{Type}$, $R_S$ une relation binaire sur $S$.\\ 
+Soit $P: S \to \mathit{Prop}$ définie par :\\ 
+$Px$ si et seulement si pour tout $A: \mathit{Type}$ et $R_A$ relation binaire sur $A$ si \\
+$[ \mathbf{{emb}_{wf}}\ (i_0 \ A \ R_A) \ (i_0 \ S \ R_S)$ et les plongemens de $(A, R_A)$ vers $(S, R_S)$ sont majorés par $x]$
+alors $\mathbf{acc}_{A_0} (i_0 \ A \ R_A)$.\\
+\\ 
+La définition de $\mathbf{{emb}_{wf}}$ nous permet de supposer $\mathbf{WF}\ S \ R_S$. Dans un premier temps, on va montrer par récurrence bien fondée qu'on a $Px$ pour tout $x:S$. Soit $x : S$ et supposons que $P$ est prouvable pour tout $y : S$ tel que $R_S \ y \ x$, montrons qu'elle est vraie pour $x$:\\
+\\
+Soit $A: \mathit{Type}$ et $R_A$ tel que $\mathbf{{emb}_{wf}}\ (i_0 \ A \ R_A) \ (i_0 \ S \ R_S)$ et les plongements de $A$ dans $S$ sont dominés par $x$.\\
+Soit $B : \mathit{Type}$ et $R_B$ tel que $\mathbf{{emb}_{wf}}\ (i_0 \ B \ R_B) \ (i_0 \ A \ R_A)$. Il existe donc deux plongements $f: B \to A$ et $g: A \to S$. Il existe aussi $[a:A$ et $\mathcal{D}_{R_A} a]$ tel que $(\forall b:B) (\mathcal{D}_{R_B} \ b) \Rightarrow(R_A \ (fb) \ a)$ d'où $(\forall b:B)(\mathcal{D}_{R_B} \ b) \Rightarrow(R_S \ (g {\circ}f \ b) \ (ga))$. $ga$ est dans l'image de $A$ par $g$ donc $(R_S \ (ga) \ x)$. L'image de $B$ par $g {\circ} f$ est dominée par $(ga)$ et $(R_S \ (ga) \ x)$. Par hypothèse de récurrence, on a $\mathbf{acc}_{\mathbf{{emb}_{wf}}} \ (i_0 \ B \ R_B)$.\\
+\\
+Comme le choix de $(B,R_B)$ est arbitraire, on a que $(\forall x:A_0) (\mathbf{{emb}_{wf}}\ x \ (i_0 \ A \ R_A)) \Rightarrow\mathbf{acc}_{\mathbf{{emb}_{wf}}}\ x$ donc $\mathbf{acc}_{\mathbf{{emb}_{wf}}} ~(i_0 ~A ~R_A) $.\\ 
+\\
+On vient de montrer que si $P$ est prouvable pour tout $y : S$ tel que $R_S \ y \ x$, alors $Px$ est prouvable. On a supposé $\mathbf{WF}\ S \ R_S$, donc par récurrence bien fondée, on a $P$ pour tout $x : S$.\\ 
+\\ 
+On a que $(\forall x:A_0) (\mathbf{{emb}_{wf}}\ x \ (i_0 \ S \ R_S)) \Rightarrow\mathbf{acc}_{\mathbf{{emb}_{wf}}} \ x$, car un plongement dans $S$ est (par définition) majoré par un terme de type $S$. Donc $\mathbf{acc}_{\mathbf{{emb}_{wf}}} \ (i_0 \ S \ R_S)$. Comme le choix de $(S,R_S)$ est arbitraire, on en déduit que pour tout $(S,R_S)$, on a $\mathbf{acc}_{\mathbf{{emb}_{wf}}} \ (i_0 \ S \ R_S)$, ce qui est la définition de $\mathbf{WF}\ A_0 \ \mathbf{{emb}_{wf}}$
+\end{demo}
+
+\begin{theo}
+\label{cle1}
+On a $$(\forall A : \mathit{Type})( \forall R: A \to A \to \mathit{Prop}) ((\mathbf{WF}\ A \ R) \land (\mathbf{Tran} \ A \ R)) \Rightarrow(\mathbf{EMB}\ A \ R \ A_0 \ \mathbf{{emb}_{wf}})$$
+\end{theo}
+
+\begin{demo} Soit $\mathbf{WF}\ A \ R$ et $\mathbf{Tran} \ A \ R$. On va construire un plongement $f: A \to A_0$.\\
+\\ 
+Soit $a:A$ on va définir $R_a: A \to A \to \mathit{Prop}$ par
+$$R_a := \lambda x^A. \lambda y^A. (R \ x \ y) \land ((R \ y \ a) \lor (y =_{\mathit{Le}}a)) $$
+On pose maintenant $f := \lambda a. (i_0 \ A \ R_a) : A \to A_0$, on note qu'on a $\mathbf{WF}\ A \ R_a$ et $\mathbf{Tran} \ A \ R_a$, $R_a$ est simplement une restriction de $R$.\\ 
+Soit $a,b :A$ tel que $(R \ a \ b)$, on a bien $\mathbf{{emb}_{wf}}\ (fa)\ (fb)$ car l'identité de $A$ est un plongement de $(A, R_a)$ vers $(A, R_b)$. $f$ est donc un morphisme de $A$ vers $A_0$. Pour montrer que $f$ est un plongement, il reste à montrer que l'image de $A$ par $f$ est dominée par un élément de $A_0$.\\
+\\
+L'idée est de construire un type "$A \cup {\infty}$'' et de définir une nouvelle relation $R_\infty$ qui est la même que $R$ avec $\infty$ l'élément maximum. Ensuite, par construction, on aura bien que $(\forall x:A) (\mathcal{D}_R \ x) \Rightarrow\mathbf{EMB}\ A \ R_x \ A \cup {\infty} \ R_\infty$, ce qui permettra de conclure.\\
+\\ 
+On va construire ce type:\\
+\\
+On définit
+\begin{center}
+$ S := (\Pi X)(A \to X) \to ( (X \to X) \to X) \to X$\\[3mm]
+$ h := \lambda a^A. \Lambda X. \lambda x^{A \to X}. \lambda y^{(X \to X) \to X}. xa : A \to S$\\[3mm]
+$\infty := \Lambda X. \lambda x^{A \to X}. \lambda y^{(X \to X) \to X}. y (\lambda z^X.z) : S$
+\end{center}
+\vspace{4mm}
+$h$ est une injection de $A$ dans $S$. On définit $R_\infty : S \to S \to \mathit{Prop}$ par:
+$$R_\infty := \lambda x^S. \lambda y^S. [(\exists a : A)(\exists b : A) ((ha =_{\mathit{Le}}x) \land (hb =_{\mathit{Le}}y)) \land (R \ a \ b)] \lor [ y =_{\mathit{Le}}\infty]$$
+Ce qui conclut. 
+\end{demo}
+
+\begin{theo}
+\label{cle2}
+On a $$(\forall A : \mathit{Type})( \forall R: A \to A \to \mathit{Prop}) ((\mathbf{WF}\ A \ R)\land(\mathbf{Tran} \ A \ R)) \Rightarrow(\mathbf{EMB}\ A \ R\ A \ R) \Rightarrow\bot$$
+\end{theo}
+
+\begin{demo} Soit $A : \mathit{Type}$ et $R$ une relation binaire sur $A$ tel que : $(\mathbf{WF}\ A \ R)$, $(\mathbf{Tran} \ A \ R)$ et $(\mathbf{EMB}\ A \mathbin{R} A \ R)$.\\
+\\ 
+Il existe un plongement $f : A \to A$. On suppose que l'image de $A$ par $f$ est dominée par $a : A$. On va construire une suite infinie décroissante à partir de $a$ :\\
+\\ 
+On a $(R \ (fa) \ a)$ donc $(R \ (f{\circ}f \ a) \ (fa))$ car $f$ est un plongement. De plus, on a que pour tout $n$ $\mathcal{D}_R \ (f^n a)$. On a donc construit une suite infinie décroissante dans $A$. Or, d'après \ref{un trois}, il ne peut pas y avoir de suite infinie décroissante. On vient donc de déduire $\bot$. 
+\end{demo}
+
+\begin{theo}
+Si un système universel de notation existe, alors le système est incohérent.
+\end{theo}
+
+\begin{demo} D'après le théorème \ref{wfA0}, on a $\mathbf{WF}\ A_0 \ \mathbf{{emb}_{wf}}$. Le théorème \ref{cle1} permet de déduire $(\mathbf{EMB}\ A_0 \ \mathbf{{emb}_{wf}}\ A_0 \ \mathbf{{emb}_{wf}})$. Enfin, le théorème \ref{cle2} permet de déduire $\bot$.
+\end{demo}
+
+Pour démontrer le paradoxe de Girard il ne reste plus qu'à construire un système universel de notation \\ 
+On pose
+$$A_0 := ((\Pi B)((B \to B \to \mathit{Prop}) \to \mathit{Prop})) \to \mathit{Prop}$$
+et
+$$i_0 := \Lambda B. \lambda R^{B \to B \to \mathit{Prop}}.\lambda x^{(\Pi B)(B \to B \to \mathit{Prop}) \to \mathit{Prop}}.xBR : (\Pi B)(B \to B \to \mathit{Prop}) \to A_0$$
+On suppose que $(i_0 \ B \ S) =_{\mathit{Le}}(i_0 \ C \ T)$ et on veut montrer qu'il existe un morphisme de $(B,S)$ vers $(C,T)$. On définit
+
+\begin{center}
+$\mathbf{MOR} := \Lambda B. \lambda S^{B \to B \to \mathit{Prop}}.\Lambda C. \lambda T^{C \to C \to \mathit{Prop}}.$\\[3mm]
+$(\exists f: B \to C)(\forall x:B) (\forall y : B) (S \ x \ y) \Rightarrow(T \ (fx) \ (fy))$\\[3mm]
+$ \mathbf{MOR} : (\Pi B)(B \to B \to \mathit{Prop}) \to (\Pi C)(C \to C \to \mathit{Prop}) \to \mathit{Prop}$
+\end{center}
+\vspace{4mm}
+
+$\mathbf{MOR}$ est le prédicat pour "il existe un morphisme de $(B,S)$ dans $(C,T)$''.
+
+\begin{center}
+$ F := \Lambda D. \lambda H^{D \to D \to \mathit{Prop}}. \mathbf{MOR} \ B \ S \ D \ H : (\Pi D)(D \to D \to \mathit{Prop}) \to \mathit{Prop}$\\[3mm]
+$ Q := \lambda x^{A_0}. x F : A_0 \to \mathit{Prop}$
+\end{center}
+\vspace{4mm}
+
+$Q (i_0 \ X \ R_X) \leadsto \mathbf{MOR} \ B \ S \ X \ R_X$. $( i_0 \ B \ S) =_{\mathit{Le}}( i_0 \ C \ T)$ donc, par définition :
+$$ (\forall P : A_0 \to \mathit{Prop}) P( i_0 \ B \ S) \Rightarrow P( i_0 \ C \ T)$$
+Donc, en particulier: 
+$$ Q( i_0 \ B \ S) \Rightarrow Q( i_0 \ C \ T)$$
+$ Q( i_0 \ B \ S) \Rightarrow Q( i_0 \ C \ T) \leadsto (\mathbf{MOR} \ B \ S \ B \ S) \Rightarrow Q( i_0 \ C \ T)$, $\mathbf{MOR}$ est réflexive donc $(\mathbf{MOR} \ B \ S \ B \ S)$ est prouvable. On en déduit que $Q( i_0 \ C \ T)$ est prouvable. $Q( i_0 \ C \ T) \leadsto \mathbf{MOR} \ B \ S \ C \ T$, donc $\mathbf{MOR} \ B \ S \ C \ T$ est prouvable, ce qui conclut.
+
+\clearpage
+
+\section*{Conclusion}
+
+L'intérêt d'étudier les propriétés de divers systèmes logiques est qu'on peut y représenter des structures qui nous sont utiles : algorithmes, bases de données, etc \ldots Connaître les propriétés de ces systèmes permet alors d'en déduire des propriétés sur les objets qu'on y représente. Par exemple, si on peut modéliser un algorithme dans le système $T$ (qui est semblable au système $F$), alors on peut en déduire que cet algorithme termine.\\
+
+On peut aussi vouloir créer un système qui nous permet de faire des mathématiques, par exemple, la théorie des ensembles et toutes ses variantes. On peut aussi s'intéresser à la vérification automatique de preuves : un programme qui prend en entrée une preuve et nous dit si elle est correcte ou non. Il faut alors se demander quels systèmes logiques (dans lesquels on peut faire des mathématiques) sont les plus appropriés pour ce genre d'automatisation. Certains assistants de preuve se basent sur une théorie des types. Coq et Lean sont parmi les assistants de preuve les plus connus et se basent chacun sur une théorie des types qui est une extension du calcul des constructions.\\
+
+Cependant, créer un système qui a les propriétés souhaitées est difficile. Se donner trop de liberté peut mener à des paradoxes et au contraire, trop se restreindre ne permet pas de faire ce que l'on voudrait. Le paradoxe de Girard en est un exemple : il paraît naturel de vouloir étendre le système au second ordre, pourtant, cela fait perdre la cohérence.
+
+\nocite{proofstypes} \nocite{Lambda-calc} \nocite{paradox}
+
+\selectlanguage{french}
+
+\bibliographystyle{plain}
+\bibliography{TER_L3}
+
+\end{document}
